@@ -1,0 +1,15 @@
+version: '2'
+services:
+
+  development:
+    build:
+      context: .
+      dockerfile: docker/Dev.dockerfile
+    image: grpc-eventstore:development
+    volumes:
+      - ./src:/package/src
+      - ./tests:/package/tests
+      - ./lib:/package/lib
+      - ./lib-tests:/package/lib-tests
+      - ./GRPCEventStore.proto:/package/GRPCEventStore.proto
+      - ./package.json:/package/package.json
