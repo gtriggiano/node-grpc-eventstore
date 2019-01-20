@@ -9,8 +9,6 @@ pids
 *.seed
 *.pid.lock
 
-# Yarn cache
-.yarn-cache.tgz
 
 # Node modules
 node_modules
@@ -18,8 +16,11 @@ node_modules
 # Optional npm cache directory
 .npm
 
-# Distribution folder
-lib
+# Cverage output folder
+coverage
 
-# Distribution tests
-lib-tests
+# Distribution folder
+dist
+
+# GH pages output directory
+pages

@@ -2,68 +2,121 @@
   "name": "grpc-eventstore",
   "description": "An Event Store with a gRPC interface",
   "version": "0.0.0",
-  "private": true,
-  "main": "lib/index.js",
+  "engines": {
+    "node": ">=8.0.0"
+  },
+  "main": "dist/main/index.js",
+  "typings": "dist/main/index.d.ts",
+  "module": "dist/module/index.js",
+  "repository": "https://github.com/gtriggiano/node-grpc-eventstore",
+  "license": "MIT",
+  "keywords": [
+    "EventStore"
+  ],
   "scripts": {
-    "build:dev:image": "./commands/build:dev:image.sh",
-    "dev:unit:tests": "./commands/unit:tests.sh live",
-    "dev:inmemorydb:tests": "./commands/inmemorydb:tests.sh live",
-    "transpile": "./commands/transpile.sh",
-    "test": "./commands/transpile.sh && ./commands/test.sh"
+    "info": "npm-scripts-info",
+    "build": "run-s clean codegen && run-p build:* && run-p copyCodegen:*",
+    "build:main": "tsc -p tsconfig.json",
+    "build:module": "tsc -p tsconfig.module.json",
+    "codegen": "bash scripts/codegen.sh",
+    "copyCodegen:main": "cp src/proto/EventStore* dist/main/proto",
+    "copyCodegen:module": "cp src/proto/EventStore* dist/module/proto",
+    "clean": "trash coverage dist pages",
+    "fix": "run-s fix:*",
+    "fix:prettier": "prettier \"src/**/*.ts\" --write",
+    "fix:tslint": "tslint --fix --project .",
+    "test": "run-s build test:*",
+    "test:lint": "tslint --project . && prettier \"src/**/*.ts\" --list-different",
+    "test:unit": "jest",
+    "dev": "run-s clean codegen build:main test:unit && run-p \"build:main -- -w\" \"test:unit -- --watch\"",
+    "watch": "run-s clean codegen build:main copyCodegen:main \"build:main -- -w\"",
+    "cov": "npm test && opn pages/coverage/lcov-report/index.html",
+    "check:coverage": "istanbul check-coverage --statements 100 --functions 100 --branches -2 --lines 100 pages/coverage/coverage-final.json",
+    "send:coverage": "codecov -f pages/coverage/coverage-final.json -t $CODECOV_TOKEN",
+    "typedoc": "run-s typedoc:html && opn pages/typedoc/index.html",
+    "typedoc:html": "typedoc src/lib --target ES6 --mode file --out pages/typedoc",
+    "typedoc:json": "typedoc src/lib --target ES6 --mode file --json pages/typedoc/typedoc.json",
+    "gh-pages:publish": "gh-pages -m \"[ci skip] Updates\" -d pages",
+    "version": "standard-version",
+    "reset": "git clean -dfx && git reset --hard && rm -rf node_modules && npm i",
+    "all": "run-s reset test typedoc:*",
+    "commit": "git-cz",
+    "prepare-release": "run-s all version"
+  },
+  "scripts-info": {
+    "info": "Display information about the package scripts",
+    "build": "Clean and rebuild the project",
+    "codegen": "Generate static code from EventStore.proto",
+    "fix": "Try to automatically fix any linting problems",
+    "test": "Clean and rebuild the project. Then lint and unit test the project",
+    "dev": "Watch and rebuild the project on save, then rerun tests",
+    "watch": "Watch and rebuild the project on save",
+    "cov": "Rebuild, run tests, then create and open the coverage report",
+    "typedoc": "Generate TypeDoc documentation and open it in a browser",
+    "typedoc:html": "Generate TypeDoc documentation",
+    "typedoc:json": "Generate documentation in typedoc JSON format",
+    "version": "Bump package.json version, update CHANGELOG.md, tag release",
+    "reset": "Delete all untracked files and reset the repo to the last commit",
+    "commit": "Make a new commit through commitizen",
+    "prepare-release": "One-step: reset, clean, build, test, generate TypeDoc, and prepare a release"
   },
   "dependencies": {
-    "bignumber.js": "^4.1.0",
-    "eventemitter3": "^2.0.3",
-    "grpc": "^1.7.1",
-    "lodash": "^4.17.4",
-    "rxjs": "^5.5.2",
-    "seamless-immutable": "^7.1.2",
-    "uuid": "^3.1.0"
+    "bignumber.js": "^8.0.1",
+    "eventemitter3": "^3.1.0",
+    "lodash": "^4.17.11",
+    "rxjs": "^6.3.3",
+    "uuid": "^3.3.2"
   },
   "devDependencies": {
-    "babel-cli": "^6.26.0",
-    "babel-eslint": "^8.0.1",
-    "babel-plugin-transform-object-rest-spread": "^6.26.0",
-    "babel-preset-env": "^1.6.1",
-    "babel-register": "^6.26.0",
-    "eslint": "^4.9.0",
-    "eslint-config-standard": "^10.2.1",
-    "eslint-plugin-import": "^2.7.0",
-    "eslint-plugin-node": "^5.2.0",
-    "eslint-plugin-promise": "^3.6.0",
-    "eslint-plugin-standard": "^3.0.1",
-    "mocha": "^4.0.1",
-    "should": "^13.1.2",
-    "sinon": "^4.0.1"
+    "@babel/core": "^7.2.2",
+    "@babel/preset-env": "^7.2.3",
+    "@types/google-protobuf": "^3.2.7",
+    "@types/jest": "^23.3.12",
+    "@types/node": "^10.12.18",
+    "@types/protobufjs": "^6.0.0",
+    "@types/uuid": "^3.4.4",
+    "babel-core": "^7.0.0-bridge.0",
+    "codecov": "^3.1.0",
+    "commitizen": "^3.0.5",
+    "cz-conventional-changelog": "^2.1.0",
+    "gh-pages": "^2.0.1",
+    "grpc": "^1.17.0",
+    "grpc-tools": "^1.6.6",
+    "grpc_tools_node_protoc_ts": "^2.4.2",
+    "jest": "^23.6.0",
+    "jest-sourcemaps": "^1.0.1",
+    "jest-stare": "^1.9.1",
+    "npm-run-all": "^4.1.5",
+    "npm-scripts-info": "^0.3.9",
+    "opn-cli": "^4.0.0",
+    "prettier": "^1.15.3",
+    "standard-version": "^4.4.0",
+    "trash-cli": "^1.4.0",
+    "tslint": "^5.12.1",
+    "tslint-config-prettier": "^1.17.0",
+    "tslint-config-standard": "^8.0.1",
+    "tslint-immutable": "^5.0.1",
+    "typedoc": "^0.14.1",
+    "typescript": "^3.2.2"
   },
-  "eslintConfig": {
-    "parser": "babel-eslint",
-    "extends": ["standard"],
-    "rules": {
-      "arrow-parens": ["error", "always"],
-      "comma-dangle": ["error", "always-multiline"],
-      "indent": [
-        "error",
-        2,
-        {
-          "MemberExpression": "off",
-          "ObjectExpression": "first",
-          "SwitchCase": 1
-        }
-      ]
+  "peerDependencies": {
+    "grpc": "^1.17.0"
+  },
+  "config": {
+    "commitizen": {
+      "path": "cz-conventional-changelog"
     }
   },
-  "babel": {
-    "presets": [
-      [
-        "env",
-        {
-          "targets": {
-            "node": true
-          }
-        }
-      ]
-    ],
-    "plugins": ["transform-object-rest-spread"]
+  "prettier": {
+    "printWidth": 80,
+    "semi": false,
+    "singleQuote": true,
+    "trailingComma": "es5",
+    "tabWidth": 2,
+    "useTabs": false
+  },
+  "jest-stare": {
+    "resultDir": "pages",
+    "coverageLink": "./coverage/lcov-report/index.html"
   }
 }

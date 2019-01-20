@@ -1,0 +1,147 @@
+syntax = "proto3";
+
+package grpceventstore;
+
+service EventStore {
+  // Ping
+  rpc Ping (Empty) returns (Empty);
+
+  // Returns a live stream of empty objects, emitted at intervals
+  rpc Heartbeat (stream HeartbeatRequest) returns (stream Empty);
+
+  /////////////////////////////////
+  // QUERIES TO THE ENTIRE STORE //
+  /////////////////////////////////
+
+  // Returns a live stream of events emitted as soon as they are stored.
+  rpc SubscribeToStore (stream Empty) returns (stream StoredEvent);
+  // Returns a live stream of all the events stored after a certain one.
+  // The server implementation should transparently switch to live events as soon as the old ones are sent.
+  rpc CatchUpWithStore (stream CatchUpWithStoreRequest) returns (stream StoredEvent);
+  // Returns an ending stream of events stored after a certain one, up to the moment of request.
+  // Clients can specify a `limit` to receive just N events.
+  rpc ReadStoreForward (ReadStoreForwardRequest) returns (stream StoredEvent);
+
+
+  /////////////////////////
+  // QUERIES TO A STREAM //
+  /////////////////////////
+
+  // Returns a live stream of events belonging to the same... stream, emitted as soon as they are stored.
+  rpc SubscribeToStream (stream SubscribeToStreamRequest) returns (stream StoredEvent);
+  // Returns a live stream of all events belonging to the same stream and having a version number > than the provided one.
+  // The server implementation should transparently switch to live events as soon as the old ones are sent.
+  rpc CatchUpWithStream (stream CatchUpWithStreamRequest) returns (stream StoredEvent);
+  // Returns an ending stream of all the events belonging to the same stream, having a version number > than the provided one and stored before the time of request.
+  // Clients can specify a `limit` to receive just N events.
+  rpc ReadStreamForward (ReadStreamForwardRequest) returns (stream StoredEvent);
+
+
+
+  ///////////////////////////////////
+  // QUERIES TO A TYPE OF STREAMS  //
+  ///////////////////////////////////
+
+  // Returns a live stream of multiplexed events belonging to streams having the same type, emitted as soon as they are stored.
+  rpc SubscribeToStreamType (stream SubscribeToStreamTypeRequest) returns (stream StoredEvent);
+  // Returns a live stream of multiplexed events belonging to streams having the same type stored after a given event.
+  // The server implementation should transparently switch to live events as soon as the old ones are sent.
+  rpc CatchUpWithStreamType (stream CatchUpWithStreamTypeRequest) returns (stream StoredEvent);
+  // Returns an ending stream of multiplexed events belonging to streams having the same type, stored after a given event and before the time of request.
+  // Clients can specify a `limit` to receive just N events.
+  rpc ReadStreamTypeForward (ReadStreamTypeForwardRequest) returns (stream StoredEvent);
+
+
+  //////////////////////
+  // WRITE PROCEDURES //
+  //////////////////////
+
+  // Attempts to append a list of events belonging to a stream
+  rpc AppendEventsToStream (AppendEventsToStreamRequest) returns (StoredEventsList);
+  // Attempts to append N list of events belonging to N streams
+  rpc AppendEventsToMultipleStreams (AppendEventsToMultipleStreamsRequest) returns (StoredEventsList);
+}
+
+message Empty {}
+
+message HeartbeatRequest {
+  int32 interval = 1;
+}
+
+message StreamType {
+  string context = 1;
+  string name = 2;
+}
+
+message Stream {
+  string id = 1;
+  StreamType type = 2;
+  
+}
+
+message Event {
+  string name = 1;
+  string payload = 2;
+}
+
+message StoredEvent {
+  int64 id = 1 [jstype=JS_STRING];
+  Stream stream = 2;
+  string name = 3;
+  string payload = 4;
+  string stored_on = 5;
+  int32  sequence_number = 6;
+  string correlation_id = 7;
+  string transaction_id = 8;
+}
+
+message CatchUpWithStoreRequest {
+  int64 from_event_id = 1 [jstype=JS_STRING];
+}
+message ReadStoreForwardRequest {
+  int64 from_event_id = 1 [jstype=JS_STRING];
+  int32 limit = 2;
+}
+
+message SubscribeToStreamRequest {
+  Stream stream = 1;
+}
+message CatchUpWithStreamRequest {
+  Stream stream = 1;
+  int32 from_sequence_number = 2;
+}
+message ReadStreamForwardRequest {
+  Stream stream = 1;
+  int32 from_sequence_number = 2;
+  int32 limit = 3;
+}
+
+message SubscribeToStreamTypeRequest {
+  StreamType stream_type = 1;
+}
+message CatchUpWithStreamTypeRequest {
+  StreamType stream_type = 1;
+  int64 from_event_id = 2 [jstype=JS_STRING];
+}
+message ReadStreamTypeForwardRequest {
+  StreamType stream_type = 1;
+  int64 from_event_id = 2 [jstype=JS_STRING];
+  int32 limit = 3;
+}
+
+message StreamInsertion {
+  Stream stream = 1;
+  int32 expected_stream_size = 2;
+  repeated Event events = 3;
+}
+message AppendEventsToStreamRequest {
+  string correlation_id = 1;
+  StreamInsertion insertion = 2;
+}
+message AppendEventsToMultipleStreamsRequest {
+  string correlation_id = 1;
+  repeated StreamInsertion insertions = 2;
+}
+message StoredEventsList {
+  repeated StoredEvent events = 1;
+}

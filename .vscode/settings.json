@@ -1,0 +1,8 @@
+{
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.implementationsCodeLens.enabled": true,
+  "typescript.referencesCodeLens.enabled": true,
+  "jest.autoEnable": false,
+  "jest.pathToJest": "node_modules/.bin/jest",
+  "jest.pathToConfig": "jest.config.js"
+}
