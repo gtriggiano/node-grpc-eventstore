@@ -4,6 +4,8 @@ import EventEmitter from 'eventemitter3'
 import { InMemoryDatabaseAdapter, SimpleStoreBus } from '../../../dist/main'
 import { eventsStreamFromStoreBus } from '../../../dist/main/helpers/eventsStreamFromStoreBus'
 
+import { generateEvents } from './generateTestEvents'
+
 const RPCCall = () => {
   const call = new EventEmitter()
   const callObserver = new EventEmitter()
@@ -19,7 +21,8 @@ const RPCCall = () => {
 const defaultIsStreamWritable = () => true
 
 export default (isStreamWritable = defaultIsStreamWritable) => {
-  const database = InMemoryDatabaseAdapter()
+  const storedEvents = generateEvents()
+  const database = InMemoryDatabaseAdapter(storedEvents)
   const storeBus = SimpleStoreBus()
   const eventsStream = eventsStreamFromStoreBus(storeBus)
   const onEventsStored = jest.fn(storedEvents =>
@@ -39,6 +42,7 @@ export default (isStreamWritable = defaultIsStreamWritable) => {
       eventsStream,
       onEventsStored,
       isStreamWritable: jest.fn(stream => isStreamWritable(stream)),
+      storedEvents,
     },
     storeBus,
   }
