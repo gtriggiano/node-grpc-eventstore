@@ -109,7 +109,7 @@ export const InMemoryDatabaseAdapter = (
         ).map((event, idx) => ({
           ...event,
           correlationId,
-          id: padId(totalEvents + 1 + idx),
+          id: `${totalEvents + 1 + idx}`,
           storedOn: now,
           transactionId,
         }))
@@ -129,7 +129,7 @@ export const InMemoryDatabaseAdapter = (
     process.nextTick(() => {
       const paddedFromEventId = padId(fromEventId)
       const foundEvents = events
-        .filter(({ id }) => id > paddedFromEventId)
+        .filter(({ id }) => padId(id) > paddedFromEventId)
         .slice(0, limit && limit > 0 ? limit : undefined)
 
       // tslint:disable no-expression-statement
@@ -176,7 +176,7 @@ export const InMemoryDatabaseAdapter = (
     process.nextTick(() => {
       const paddedFromEventId = padId(fromEventId)
       const foundEvents = getEventsOfStreamType(streamType)
-        .filter(({ id }) => id > paddedFromEventId)
+        .filter(({ id }) => padId(id) > paddedFromEventId)
         .slice(0, limit && limit > 0 ? limit : undefined)
 
       // tslint:disable no-expression-statement
