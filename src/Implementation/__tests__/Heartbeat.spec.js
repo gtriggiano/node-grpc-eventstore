@@ -111,4 +111,16 @@ describe('heartbeat(call) handler', () => {
       done()
     }, 700)
   })
+  it("if client'stream ends before sending an heartbeat request then the server'stream ends", () => {
+    const { call, callObserver, config } = Mocks()
+    Heartbeat(config)(call)
+
+    let serverStreamEnded = false
+    callObserver.on('end', () => {
+      serverStreamEnded = true
+    })
+
+    call.emit('end')
+    expect(serverStreamEnded).toBe(true)
+  })
 })
