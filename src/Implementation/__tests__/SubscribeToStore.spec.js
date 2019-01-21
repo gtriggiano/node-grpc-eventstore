@@ -108,4 +108,16 @@ describe('subscribeToStore(call) handler', () => {
       done()
     }, 1)
   })
+  it("if client'stream ends before sending a subscription request then the server'stream ends", () => {
+    const { call, callObserver, config } = Mocks()
+    SubscribeToStore(config)(call)
+
+    let serverStreamEnded = false
+    callObserver.on('end', () => {
+      serverStreamEnded = true
+    })
+
+    call.emit('end')
+    expect(serverStreamEnded).toBe(true)
+  })
 })
