@@ -1,9 +1,9 @@
 // tslint:disable no-expression-statement no-let no-if-statement
 import * as GRPC from 'grpc'
 import { noop } from 'lodash'
-import { ReplaySubject } from 'rxjs'
+import { concat, ReplaySubject } from 'rxjs'
 // tslint:disable-next-line:no-submodule-imports
-import { concat, filter } from 'rxjs/operators'
+import { filter } from 'rxjs/operators'
 
 import { DbResultsStream } from '../helpers/DbResultsStream'
 import { getStoredEventMessage } from '../helpers/getStoredEventMessage'
@@ -107,7 +107,9 @@ export const CatchUpWithStream: CatchUpWithStreamFactory = ({
             .catch(endCachedLiveStream)
 
           subscription = dbStream
-            .pipe(concat(cachedFilteredLiveStream, filteredLiveStream))
+            .pipe(strm =>
+              concat(strm, cachedFilteredLiveStream, filteredLiveStream)
+            )
             .subscribe(
               storedEvent => sendStoredEvent(storedEvent),
               error => call.emit('error', error)

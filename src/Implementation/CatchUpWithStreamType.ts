@@ -2,9 +2,9 @@
 import BigNumber from 'bignumber.js'
 import * as GRPC from 'grpc'
 import { noop } from 'lodash'
-import { ReplaySubject } from 'rxjs'
+import { concat, ReplaySubject } from 'rxjs'
 // tslint:disable-next-line:no-submodule-imports
-import { concat, filter } from 'rxjs/operators'
+import { filter } from 'rxjs/operators'
 
 import { DbResultsStream } from '../helpers/DbResultsStream'
 import { getStoredEventMessage } from '../helpers/getStoredEventMessage'
@@ -107,7 +107,9 @@ export const CatchUpWithStreamType: CatchUpWithStreamTypeFactory = ({
             .catch(endCachedLiveStream)
 
           subscription = dbStream
-            .pipe(concat(cachedFilteredLiveStream, filteredLiveStream))
+            .pipe(stream =>
+              concat(stream, cachedFilteredLiveStream, filteredLiveStream)
+            )
             .subscribe(
               storedEvent => sendStoredEvent(storedEvent),
               error => call.emit('error', error)
