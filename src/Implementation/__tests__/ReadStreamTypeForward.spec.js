@@ -1,6 +1,6 @@
 import * as GRPC from 'grpc'
 import 'jest'
-import { every, isEqual, random, range, sample } from 'lodash'
+import { isEqual, random, sample } from 'lodash'
 import uuid from 'uuid'
 
 import { ReadStreamTypeForwardRequest, StreamType } from '../../../dist/main'

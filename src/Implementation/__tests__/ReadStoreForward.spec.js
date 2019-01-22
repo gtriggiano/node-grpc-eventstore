@@ -1,6 +1,5 @@
 import 'jest'
-import { every, random, range, sample } from 'lodash'
-import uuid from 'uuid'
+import { random } from 'lodash'
 
 import { ReadStoreForwardRequest } from '../../../dist/main'
 import { ReadStoreForward } from '../../../dist/main/Implementation/ReadStoreForward'

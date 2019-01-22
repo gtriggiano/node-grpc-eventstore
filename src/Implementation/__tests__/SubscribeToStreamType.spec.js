@@ -1,6 +1,6 @@
 import 'jest'
 import * as GRPC from 'grpc'
-import { every, random, range, sample } from 'lodash'
+import { every, range, sample } from 'lodash'
 import uuid from 'uuid'
 
 import {
