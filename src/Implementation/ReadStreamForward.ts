@@ -1,12 +1,12 @@
 // tslint:disable no-expression-statement no-if-statement
 import * as GRPC from 'grpc'
-import { noop } from 'lodash'
 
 import { DbResultsStream } from '../helpers/DbResultsStream'
 import { getStoredEventMessage } from '../helpers/getStoredEventMessage'
-import { isValidStream } from '../helpers/isValidStream'
+import { isValidStreamType } from '../helpers/isValidStreamType'
 import { sanitizeStream } from '../helpers/sanitizeStream'
 import { ReadStreamForwardRequest, StoredEvent } from '../proto'
+import { Stream } from '../types'
 
 import { ImplementationConfiguration } from './index'
 
@@ -16,31 +16,50 @@ type ReadStreamForwardFactory = (
 
 export const ReadStreamForward: ReadStreamForwardFactory = ({ db }) => call => {
   const streamMessage = call.request.getStream()
-  const stream = streamMessage && streamMessage.toObject()
+
+  if (!streamMessage) {
+    call.emit('error', {
+      code: GRPC.status.INVALID_ARGUMENT,
+      message: 'STREAM_NOT_PROVIDED',
+      name: 'STREAM_NOT_PROVIDED',
+    })
+    return
+  }
+
+  const stream = streamMessage.toObject()
+  if (!stream.type) {
+    call.emit('error', {
+      code: GRPC.status.INVALID_ARGUMENT,
+      message: 'STREAM_TYPE_NOT_PROVIDED',
+      name: 'STREAM_TYPE_NOT_PROVIDED',
+    })
+    return
+  }
+
+  if (!isValidStreamType(stream.type)) {
+    call.emit('error', {
+      code: GRPC.status.INVALID_ARGUMENT,
+      message: 'STREAM_TYPE_NOT_VALID',
+      name: 'STREAM_TYPE_NOT_VALID',
+    })
+    return
+  }
+
+  const observedStream = sanitizeStream(stream as Stream)
   const fromSequenceNumber = call.request.getFromSequenceNumber()
   const limit = call.request.getLimit()
 
-  if (isValidStream(stream)) {
-    call.on('error', noop)
+  const dbResults = db.getEventsByStream({
+    fromSequenceNumber: Math.max(0, fromSequenceNumber),
+    limit: limit > 0 ? limit : undefined,
+    stream: observedStream,
+  })
 
-    const dbResults = db.getEventsByStream({
-      fromSequenceNumber: Math.max(0, fromSequenceNumber),
-      limit: limit > 0 ? limit : undefined,
-      stream: sanitizeStream(stream),
-    })
+  const dbStream = DbResultsStream(dbResults)
 
-    const dbStream = DbResultsStream(dbResults)
-
-    dbStream.subscribe(
-      storedEvent => call.write(getStoredEventMessage(storedEvent)),
-      error => call.emit('error', error),
-      () => call.end()
-    )
-  } else {
-    try {
-      isValidStream(stream, true)
-    } catch (error) {
-      call.emit('error', {})
-    }
-  }
+  dbStream.subscribe(
+    storedEvent => call.write(getStoredEventMessage(storedEvent)),
+    error => call.emit('error', error),
+    () => call.end()
+  )
 }
