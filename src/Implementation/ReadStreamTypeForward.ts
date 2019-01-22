@@ -1,7 +1,6 @@
 // tslint:disable no-expression-statement no-if-statement
 import BigNumber from 'bignumber.js'
 import * as GRPC from 'grpc'
-import { noop } from 'lodash'
 
 import { DbResultsStream } from '../helpers/DbResultsStream'
 import { getStoredEventMessage } from '../helpers/getStoredEventMessage'
@@ -19,31 +18,42 @@ export const ReadStreamTypeForward: ReadStreamTypeForwardFactory = ({
   db,
 }) => call => {
   const streamTypeMessage = call.request.getStreamType()
-  const streamType = streamTypeMessage && streamTypeMessage.toObject()
+
+  if (!streamTypeMessage) {
+    call.emit('error', {
+      code: GRPC.status.INVALID_ARGUMENT,
+      message: 'STREAM_TYPE_NOT_PROVIDED',
+      name: 'STREAM_TYPE_NOT_PROVIDED',
+    })
+    return
+  }
+
+  const streamType = streamTypeMessage.toObject()
+
+  if (!isValidStreamType(streamType)) {
+    call.emit('error', {
+      code: GRPC.status.INVALID_ARGUMENT,
+      message: 'STREAM_TYPE_NOT_VALID',
+      name: 'STREAM_TYPE_NOT_VALID',
+    })
+    return
+  }
+
+  const observedStreamType = sanitizeStreamType(streamType)
   const fromEventId = BigNumber.maximum(0, call.request.getFromEventId())
   const limit = call.request.getLimit()
 
-  if (isValidStreamType(streamType)) {
-    call.on('error', noop)
+  const dbResults = db.getEventsByStreamType({
+    fromEventId: fromEventId.toString(),
+    limit: limit > 0 ? limit : undefined,
+    streamType: observedStreamType,
+  })
 
-    const dbResults = db.getEventsByStreamType({
-      fromEventId: fromEventId.toString(),
-      limit: limit > 0 ? limit : undefined,
-      streamType: sanitizeStreamType(streamType),
-    })
+  const dbStream = DbResultsStream(dbResults)
 
-    const dbStream = DbResultsStream(dbResults)
-
-    dbStream.subscribe(
-      storedEvent => call.write(getStoredEventMessage(storedEvent)),
-      error => call.emit('error', error),
-      () => call.end()
-    )
-  } else {
-    try {
-      isValidStreamType(streamType, true)
-    } catch (error) {
-      call.emit('error', {})
-    }
-  }
+  dbStream.subscribe(
+    storedEvent => call.write(getStoredEventMessage(storedEvent)),
+    error => call.emit('error', error),
+    () => call.end()
+  )
 }
