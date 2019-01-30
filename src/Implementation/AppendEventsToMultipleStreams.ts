@@ -8,20 +8,14 @@ import { isValidEventName } from '../helpers/isValidEventName'
 import { isValidStream } from '../helpers/isValidStream'
 import { sanitizeStream } from '../helpers/sanitizeStream'
 import { streamToString } from '../helpers/streamToString'
-import {
-  AppendEventsToMultipleStreamsRequest,
-  StoredEventsList,
-} from '../proto'
+import { IEventStoreServer, Messages } from '../proto'
 import { DbError, DbStoredEvent, Stream, StreamInsertion } from '../types'
 
 import { ImplementationConfiguration } from './index'
 
 type AppendEventsToMultipleStreamsFactory = (
   config: ImplementationConfiguration
-) => GRPC.handleUnaryCall<
-  AppendEventsToMultipleStreamsRequest,
-  StoredEventsList
->
+) => IEventStoreServer['appendEventsToMultipleStreams']
 
 export const AppendEventsToMultipleStreams: AppendEventsToMultipleStreamsFactory = ({
   db,
@@ -35,7 +29,7 @@ export const AppendEventsToMultipleStreams: AppendEventsToMultipleStreamsFactory
    * Check if at least one insertion was passed
    */
   if (!insertions.length) {
-    callback(null, new StoredEventsList())
+    callback(null, new Messages.StoredEventsList())
   }
 
   /**
@@ -47,7 +41,7 @@ export const AppendEventsToMultipleStreams: AppendEventsToMultipleStreamsFactory
       []
     ).length
   ) {
-    callback(null, new StoredEventsList())
+    callback(null, new Messages.StoredEventsList())
     return
   }
 
@@ -181,13 +175,12 @@ export const AppendEventsToMultipleStreams: AppendEventsToMultipleStreamsFactory
   const cleanListeners = () => dbResults.removeAllListeners()
 
   const onDbStoredEvents = (storedEvents: ReadonlyArray<DbStoredEvent>) => {
-    const storedEventsListMessage = storedEvents.reduce<StoredEventsList>(
-      (message, storedEvent) => {
-        message.addEvents(getStoredEventMessage(storedEvent))
-        return message
-      },
-      new StoredEventsList()
-    )
+    const storedEventsListMessage = storedEvents.reduce<
+      Messages.StoredEventsList
+    >((message, storedEvent) => {
+      message.addEvents(getStoredEventMessage(storedEvent))
+      return message
+    }, new Messages.StoredEventsList())
 
     cleanListeners()
     onEventsStored(storedEvents)

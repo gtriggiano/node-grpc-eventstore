@@ -1,19 +1,18 @@
-// tslint:disable no-expression-statement no-if-statement
+// tslint:disable no-expression-statement no-if-statement no-submodule-imports
 import * as GRPC from 'grpc'
-// tslint:disable-next-line:no-submodule-imports
 import { filter } from 'rxjs/operators'
 
 import { getStoredEventMessage } from '../helpers/getStoredEventMessage'
 import { isValidStreamType } from '../helpers/isValidStreamType'
 import { sanitizeStream } from '../helpers/sanitizeStream'
-import { StoredEvent, SubscribeToStreamRequest } from '../proto'
+import { IEventStoreServer, Messages } from '../proto'
 import { Stream } from '../types'
 
 import { ImplementationConfiguration } from './index'
 
 type SubscribeToStreamFactory = (
   config: ImplementationConfiguration
-) => GRPC.handleBidiStreamingCall<SubscribeToStreamRequest, StoredEvent>
+) => IEventStoreServer['subscribeToStream']
 
 export const SubscribeToStream: SubscribeToStreamFactory = ({
   eventsStream,
@@ -23,7 +22,7 @@ export const SubscribeToStream: SubscribeToStreamFactory = ({
 
   call.on('end', () => onClientTermination())
 
-  call.once('data', (request: SubscribeToStreamRequest) => {
+  call.once('data', (request: Messages.SubscribeToStreamRequest) => {
     const streamMessage = request.getStream()
 
     if (!streamMessage) {

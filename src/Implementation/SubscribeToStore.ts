@@ -1,14 +1,12 @@
 // tslint:disable no-expression-statement
-import * as GRPC from 'grpc'
-
 import { getStoredEventMessage } from '../helpers/getStoredEventMessage'
-import { Empty, StoredEvent } from '../proto'
+import { IEventStoreServer } from '../proto'
 
 import { ImplementationConfiguration } from './index'
 
 type SubscribeToStoreFactory = (
   config: ImplementationConfiguration
-) => GRPC.handleBidiStreamingCall<Empty, StoredEvent>
+) => IEventStoreServer['subscribeToStore']
 
 export const SubscribeToStore: SubscribeToStoreFactory = ({
   eventsStream,

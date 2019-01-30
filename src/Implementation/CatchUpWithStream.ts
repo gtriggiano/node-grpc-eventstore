@@ -1,5 +1,4 @@
 // tslint:disable no-expression-statement no-let no-if-statement
-import * as GRPC from 'grpc'
 import { noop } from 'lodash'
 import { concat, ReplaySubject } from 'rxjs'
 // tslint:disable-next-line:no-submodule-imports
@@ -9,14 +8,14 @@ import { DbResultsStream } from '../helpers/DbResultsStream'
 import { getStoredEventMessage } from '../helpers/getStoredEventMessage'
 import { isValidStream } from '../helpers/isValidStream'
 import { sanitizeStream } from '../helpers/sanitizeStream'
-import { CatchUpWithStreamRequest, StoredEvent } from '../proto'
+import { IEventStoreServer, Messages } from '../proto'
 import { DbStoredEvent } from '../types'
 
 import { ImplementationConfiguration } from './index'
 
 type CatchUpWithStreamFactory = (
   config: ImplementationConfiguration
-) => GRPC.handleBidiStreamingCall<CatchUpWithStreamRequest, StoredEvent>
+) => IEventStoreServer['catchUpWithStream']
 
 export const CatchUpWithStream: CatchUpWithStreamFactory = ({
   db,
@@ -42,7 +41,7 @@ export const CatchUpWithStream: CatchUpWithStreamFactory = ({
     }
   }
 
-  call.once('data', (request: CatchUpWithStreamRequest) => {
+  call.once('data', (request: Messages.CatchUpWithStreamRequest) => {
     const streamMessage = request.getStream()
     const stream = streamMessage && streamMessage.toObject()
 

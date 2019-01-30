@@ -3,7 +3,7 @@
   "description": "An Event Store with a gRPC interface",
   "version": "0.0.0",
   "engines": {
-    "node": ">=8.0.0"
+    "node": ">=10.0.0"
   },
   "main": "dist/main/index.js",
   "typings": "dist/main/index.d.ts",

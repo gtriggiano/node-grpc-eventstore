@@ -1,6 +1,5 @@
 // tslint:disable no-expression-statement no-let no-if-statement
 import BigNumber from 'bignumber.js'
-import * as GRPC from 'grpc'
 import { noop } from 'lodash'
 import { concat, ReplaySubject } from 'rxjs'
 // tslint:disable-next-line:no-submodule-imports
@@ -8,7 +7,7 @@ import { filter } from 'rxjs/operators'
 
 import { DbResultsStream } from '../helpers/DbResultsStream'
 import { getStoredEventMessage } from '../helpers/getStoredEventMessage'
-import { CatchUpWithStreamTypeRequest, StoredEvent } from '../proto'
+import { IEventStoreServer, Messages } from '../proto'
 import { DbStoredEvent } from '../types'
 
 import { isValidStreamType } from '../helpers/isValidStreamType'
@@ -17,7 +16,7 @@ import { ImplementationConfiguration } from './index'
 
 type CatchUpWithStreamTypeFactory = (
   config: ImplementationConfiguration
-) => GRPC.handleBidiStreamingCall<CatchUpWithStreamTypeRequest, StoredEvent>
+) => IEventStoreServer['catchUpWithStreamType']
 
 export const CatchUpWithStreamType: CatchUpWithStreamTypeFactory = ({
   db,
@@ -43,7 +42,7 @@ export const CatchUpWithStreamType: CatchUpWithStreamTypeFactory = ({
     }
   }
 
-  call.once('data', (request: CatchUpWithStreamTypeRequest) => {
+  call.once('data', (request: Messages.CatchUpWithStreamTypeRequest) => {
     const streamTypeMessage = request.getStreamType()
     const streamType = streamTypeMessage && streamTypeMessage.toObject()
 

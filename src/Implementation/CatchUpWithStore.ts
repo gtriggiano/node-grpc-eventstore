@@ -1,6 +1,5 @@
 // tslint:disable no-expression-statement no-let
 import BigNumber from 'bignumber.js'
-import * as GRPC from 'grpc'
 import { noop } from 'lodash'
 import { concat, ReplaySubject } from 'rxjs'
 // tslint:disable-next-line:no-submodule-imports
@@ -8,14 +7,14 @@ import { filter } from 'rxjs/operators'
 
 import { DbResultsStream } from '../helpers/DbResultsStream'
 import { getStoredEventMessage } from '../helpers/getStoredEventMessage'
-import { CatchUpWithStoreRequest, StoredEvent } from '../proto'
+import { IEventStoreServer, Messages } from '../proto'
 import { DbStoredEvent } from '../types'
 
 import { ImplementationConfiguration } from './index'
 
 type CatchUpWithStoreFactory = (
   config: ImplementationConfiguration
-) => GRPC.handleBidiStreamingCall<CatchUpWithStoreRequest, StoredEvent>
+) => IEventStoreServer['catchUpWithStore']
 
 export const CatchUpWithStore: CatchUpWithStoreFactory = ({
   db,
@@ -41,7 +40,7 @@ export const CatchUpWithStore: CatchUpWithStoreFactory = ({
     }
   }
 
-  call.once('data', (request: CatchUpWithStoreRequest) => {
+  call.once('data', (request: Messages.CatchUpWithStoreRequest) => {
     const fromEventId = BigNumber.maximum(
       0,
       request.getFromEventId()

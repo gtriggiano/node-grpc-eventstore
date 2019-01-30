@@ -1,5 +1,6 @@
 import { ConnectableObservable } from 'rxjs'
 
+import { IEventStoreServer } from '../proto'
 import { DatabaseAdapter, DbStoredEvent, WritableStreamChecker } from '../types'
 
 import { AppendEventsToMultipleStreams } from './AppendEventsToMultipleStreams'
@@ -23,7 +24,9 @@ export interface ImplementationConfiguration {
   readonly onEventsStored: (storedEvents: ReadonlyArray<DbStoredEvent>) => void
 }
 
-export const Implementation = (config: ImplementationConfiguration) => ({
+export const Implementation = (
+  config: ImplementationConfiguration
+): IEventStoreServer => ({
   appendEventsToMultipleStreams: AppendEventsToMultipleStreams(config),
   appendEventsToStream: AppendEventsToStream(config),
   catchUpWithStore: CatchUpWithStore(config),

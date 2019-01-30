@@ -1,5 +1,5 @@
 import EventEmitter from 'eventemitter3'
-import { flatten, isError, pick } from 'lodash'
+import { flatten } from 'lodash'
 
 import { zeropad } from '../helpers/zeropad'
 import {
@@ -20,11 +20,20 @@ interface EventToStore {
   readonly stream: Stream
 }
 
+interface InsertionConcurrencyFailure {
+  readonly message: 'STREAM_DOES_NOT_EXIST' | 'EXPECTED_STREAM_SIZE_MISMATCH'
+  readonly stream: Stream
+  readonly actualStreamSize: number
+  readonly expectedStreamSize: number
+}
+
 const padId = (id: string | number) => zeropad(`${id}`, 25)
 
 export const InMemoryDatabaseAdapter = (
   initialEvents: ReadonlyArray<DbStoredEvent> = []
-): DatabaseAdapter => {
+): DatabaseAdapter & {
+  readonly getAllEvents: () => ReadonlyArray<DbStoredEvent>
+} => {
   const dbAdapter = new EventEmitter()
 
   // tslint:disable-next-line:readonly-array
@@ -50,31 +59,37 @@ export const InMemoryDatabaseAdapter = (
   const processInsertion = (
     insertion: StreamInsertion,
     actualStreamSize: number
-  ): ReadonlyArray<EventToStore> | Error => {
+  ): ReadonlyArray<EventToStore> | InsertionConcurrencyFailure => {
     const { stream, events: eventsToStore, expectedStreamSize } = insertion
 
     // tslint:disable-next-line:no-if-statement
     if (expectedStreamSize !== -2) {
       // tslint:disable-next-line:no-if-statement
       if (expectedStreamSize === -1 && !actualStreamSize) {
-        const error = new Error(`STREAM_DOES_NOT_EXIST`)
-        return error
+        return {
+          actualStreamSize,
+          expectedStreamSize,
+          message: 'STREAM_DOES_NOT_EXIST',
+          stream,
+        }
       }
       // tslint:disable-next-line:no-if-statement
       if (expectedStreamSize !== actualStreamSize) {
-        const error = new Error(`STREAM_SEQUENCE_MISMATCH`)
-        return error
+        return {
+          actualStreamSize,
+          expectedStreamSize,
+          message: 'EXPECTED_STREAM_SIZE_MISMATCH',
+          stream,
+        }
       }
     }
 
-    return eventsToStore
-      ? eventsToStore.map(({ name, payload }, idx) => ({
-          name,
-          payload,
-          sequenceNumber: actualStreamSize + idx + 1,
-          stream,
-        }))
-      : []
+    return eventsToStore.map(({ name, payload }, idx) => ({
+      name,
+      payload,
+      sequenceNumber: actualStreamSize + idx + 1,
+      stream,
+    }))
   }
 
   const getAllEvents = () => events.slice()
@@ -87,20 +102,21 @@ export const InMemoryDatabaseAdapter = (
       'stored-events' | 'update' | 'error'
     > = new EventEmitter()
 
-    // tslint:disable-next-line:no-expression-statement
+    // tslint:disable no-expression-statement no-if-statement no-object-mutation
     process.nextTick(() => {
       const processedInsertions = insertions.map(insertion =>
         processInsertion(insertion, getStreamSize(insertion.stream))
       )
-      const errors = processedInsertions.filter(x => isError(x))
+      const failures = processedInsertions.filter<InsertionConcurrencyFailure>(
+        (x: any): x is InsertionConcurrencyFailure => !Array.isArray(x)
+      )
 
-      // tslint:disable-next-line:no-if-statement
-      if (errors.length) {
-        const message = JSON.stringify(
-          errors.map(error => pick(error, ['message']))
-        )
-        // tslint:disable-next-line:no-expression-statement
-        dbResults.emit('error', new Error(`CONSISTENCY|${message}`))
+      if (failures.length) {
+        const error = new Error('CONCURRENCY')
+        error.name = 'CONCURRENCY'
+        ;(error as any).failures = failures
+
+        dbResults.emit('error', error)
       } else {
         const now = new Date().toISOString()
         const totalEvents = events.length
@@ -113,12 +129,14 @@ export const InMemoryDatabaseAdapter = (
           storedOn: now,
           transactionId,
         }))
-        // tslint:disable-next-line:no-expression-statement
+
+        events.push(...eventsToAppend)
+
         dbResults.emit('stored-events', eventsToAppend)
-        // tslint:disable-next-line:no-expression-statement
         dbAdapter.emit('update')
       }
     })
+    // tslint:enable
 
     return dbResults
   }

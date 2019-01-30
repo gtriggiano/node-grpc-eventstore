@@ -6,13 +6,13 @@ import { filter } from 'rxjs/operators'
 import { getStoredEventMessage } from '../helpers/getStoredEventMessage'
 import { isValidStreamType } from '../helpers/isValidStreamType'
 import { sanitizeStreamType } from '../helpers/sanitizeStreamType'
-import { StoredEvent, SubscribeToStreamTypeRequest } from '../proto'
+import { IEventStoreServer, Messages } from '../proto'
 
 import { ImplementationConfiguration } from './index'
 
 type SubscribeToStreamTypeFactory = (
   config: ImplementationConfiguration
-) => GRPC.handleBidiStreamingCall<SubscribeToStreamTypeRequest, StoredEvent>
+) => IEventStoreServer['subscribeToStreamType']
 
 export const SubscribeToStreamType: SubscribeToStreamTypeFactory = ({
   eventsStream,
@@ -22,7 +22,7 @@ export const SubscribeToStreamType: SubscribeToStreamTypeFactory = ({
 
   call.on('end', () => onClientTermination())
 
-  call.once('data', (request: SubscribeToStreamTypeRequest) => {
+  call.once('data', (request: Messages.SubscribeToStreamTypeRequest) => {
     const streamTypeMessage = request.getStreamType()
 
     if (!streamTypeMessage) {

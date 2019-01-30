@@ -6,13 +6,13 @@ import { DbResultsStream } from '../helpers/DbResultsStream'
 import { getStoredEventMessage } from '../helpers/getStoredEventMessage'
 import { isValidStreamType } from '../helpers/isValidStreamType'
 import { sanitizeStreamType } from '../helpers/sanitizeStreamType'
-import { ReadStreamTypeForwardRequest, StoredEvent } from '../proto'
+import { IEventStoreServer } from '../proto'
 
 import { ImplementationConfiguration } from './index'
 
 type ReadStreamTypeForwardFactory = (
   config: ImplementationConfiguration
-) => GRPC.handleServerStreamingCall<ReadStreamTypeForwardRequest, StoredEvent>
+) => IEventStoreServer['readStreamTypeForward']
 
 export const ReadStreamTypeForward: ReadStreamTypeForwardFactory = ({
   db,

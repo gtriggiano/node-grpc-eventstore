@@ -1,5 +1,5 @@
 // tslint:disable no-expression-statement
-import { StoredEvent, Stream, StreamType } from '../proto'
+import { Messages } from '../proto'
 import { DbStoredEvent } from '../types'
 
 export const getStoredEventMessage = ({
@@ -11,16 +11,16 @@ export const getStoredEventMessage = ({
   sequenceNumber,
   correlationId,
   transactionId,
-}: DbStoredEvent): StoredEvent => {
-  const streamTypeMessage = new StreamType()
+}: DbStoredEvent): Messages.StoredEvent => {
+  const streamTypeMessage = new Messages.StreamType()
   streamTypeMessage.setName(stream.type.name)
   streamTypeMessage.setContext(stream.type.context)
 
-  const streamMessage = new Stream()
+  const streamMessage = new Messages.Stream()
   streamMessage.setId(stream.id)
   streamMessage.setType(streamTypeMessage)
 
-  const message = new StoredEvent()
+  const message = new Messages.StoredEvent()
   message.setId((id as unknown) as number)
   message.setStream(streamMessage)
   message.setName(name)

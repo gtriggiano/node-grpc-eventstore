@@ -1,14 +1,8 @@
 // tslint:disable no-expression-statement
-import * as GRPC from 'grpc'
+import { IEventStoreServer, Messages } from '../proto'
 
-import { Empty } from '../proto'
+type PingFactory = () => IEventStoreServer['ping']
 
-type PingFactory = () => GRPC.handleUnaryCall<Empty, Empty>
-
-export const Ping: PingFactory = () => (
-  _: GRPC.ServerUnaryCall<Empty>,
-  callback: GRPC.sendUnaryData<Empty>
-): void => {
-  // tslint:disable-next-line:no-expression-statement
-  callback(null, new Empty())
+export const Ping: PingFactory = () => (_, callback): void => {
+  callback(null, new Messages.Empty())
 }

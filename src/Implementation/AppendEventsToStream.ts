@@ -6,8 +6,7 @@ import { getStoredEventMessage } from '../helpers/getStoredEventMessage'
 import { isValidEventName } from '../helpers/isValidEventName'
 import { isValidStream } from '../helpers/isValidStream'
 import { sanitizeStream } from '../helpers/sanitizeStream'
-import { streamToString } from '../helpers/streamToString'
-import { AppendEventsToStreamRequest, StoredEventsList } from '../proto'
+import { Messages, IEventStoreServer } from '../proto'
 import { DbError, DbStoredEvent } from '../types'
 
 import { ImplementationConfiguration } from './index'
@@ -17,7 +16,7 @@ export const ANY_POSITIVE_SEQUENCE_NUMBER = -1
 
 type AppendEventsToStreamFactory = (
   config: ImplementationConfiguration
-) => GRPC.handleUnaryCall<AppendEventsToStreamRequest, StoredEventsList>
+) => IEventStoreServer['appendEventsToStream']
 
 export const AppendEventsToStream: AppendEventsToStreamFactory = ({
   db,
@@ -32,7 +31,7 @@ export const AppendEventsToStream: AppendEventsToStreamFactory = ({
     callback(
       {
         code: GRPC.status.INVALID_ARGUMENT,
-        message: 'insertion is mandatory',
+        message: 'MISSING_INSERTION',
         name: 'MISSING_INSERTION',
       },
       null
@@ -44,8 +43,8 @@ export const AppendEventsToStream: AppendEventsToStreamFactory = ({
     callback(
       {
         code: GRPC.status.INVALID_ARGUMENT,
-        message: `insertion.expectedStreamSize should be >= -2`,
-        name: 'BAD_EXPECTED_STREAM_SIZE',
+        message: 'INVALID_EXPECTED_STREAM_SIZE',
+        name: 'INVALID_EXPECTED_STREAM_SIZE',
       },
       null
     )
@@ -53,11 +52,14 @@ export const AppendEventsToStream: AppendEventsToStreamFactory = ({
   }
 
   if (!isValidStream(insertion.stream)) {
+    const metadataMessage = new GRPC.Metadata()
+    metadataMessage.add('0', JSON.stringify(insertion.stream))
     callback(
       {
         code: GRPC.status.INVALID_ARGUMENT,
-        message: JSON.stringify(insertion.stream),
-        name: 'BAD_INSERTION_STREAM',
+        message: 'INVALID_INSERTION_STREAM',
+        metadata: metadataMessage,
+        name: 'INVALID_INSERTION_STREAM',
       },
       null
     )
@@ -66,20 +68,18 @@ export const AppendEventsToStream: AppendEventsToStreamFactory = ({
 
   const sanitizedStream = sanitizeStream(insertion.stream)
 
-  if (!isStreamWritable(sanitizedStream)) {
+  if (insertion.eventsList.length && !isStreamWritable(sanitizedStream)) {
+    const metadataMessage = new GRPC.Metadata()
+    metadataMessage.add('0', JSON.stringify(insertion.stream))
     callback(
       {
-        code: GRPC.status.INVALID_ARGUMENT,
-        message: JSON.stringify(insertion.stream),
-        name: 'INSERTION_STREAM_NOT_WRITABLE',
+        code: GRPC.status.PERMISSION_DENIED,
+        message: 'STREAM_NOT_WRITABLE',
+        metadata: metadataMessage,
+        name: 'STREAM_NOT_WRITABLE',
       },
       null
     )
-    return
-  }
-
-  if (!insertion.eventsList.length) {
-    callback(null, new StoredEventsList())
     return
   }
 
@@ -109,46 +109,36 @@ export const AppendEventsToStream: AppendEventsToStreamFactory = ({
     stream: sanitizedStream,
   }
 
-  const dbResults = db.appendEvents([sanitizedInsertion], uuid(), correlationId)
-  const cleanListeners = () => dbResults.removeAllListeners()
-
   const onDbStoredEvents = (storedEvents: ReadonlyArray<DbStoredEvent>) => {
-    const storedEventsListMessage = storedEvents.reduce<StoredEventsList>(
-      (message, storedEvent) => {
-        message.addEvents(getStoredEventMessage(storedEvent))
-        return message
-      },
-      new StoredEventsList()
-    )
+    const storedEventsListMessage = storedEvents.reduce<
+      Messages.StoredEventsList
+    >((message, storedEvent) => {
+      message.addEvents(getStoredEventMessage(storedEvent))
+      return message
+    }, new Messages.StoredEventsList())
 
-    cleanListeners()
     onEventsStored(storedEvents)
     callback(null, storedEventsListMessage)
   }
 
   const onDbError = (error: DbError) => {
-    cleanListeners()
     switch (error.name) {
       case 'CONCURRENCY':
         const metadataMessage = new GRPC.Metadata()
-        error.failures.forEach(failure => {
-          metadataMessage.add(
-            streamToString(failure.stream),
-            JSON.stringify(failure)
-          )
+        error.failures.forEach((failure, idx) => {
+          metadataMessage.add(`${idx}`, JSON.stringify(failure))
         })
         callback(
           {
             code: GRPC.status.ABORTED,
-            message: error.message,
+            message: 'CONCURRENCY',
             metadata: metadataMessage,
-            name: error.name,
+            name: 'CONCURRENCY',
           },
           null
         )
         break
 
-      case 'UNAVAILABLE':
       default:
         callback(
           {
@@ -162,6 +152,14 @@ export const AppendEventsToStream: AppendEventsToStreamFactory = ({
     }
   }
 
-  dbResults.on('stored-events', onDbStoredEvents)
-  dbResults.on('error', onDbError)
+  const dbResults = db.appendEvents([sanitizedInsertion], uuid(), correlationId)
+  const cleanListeners = () => dbResults.removeAllListeners()
+  dbResults.on('stored-events', storedEvents => {
+    cleanListeners()
+    onDbStoredEvents(storedEvents)
+  })
+  dbResults.on('error', error => {
+    cleanListeners()
+    onDbError(error)
+  })
 }

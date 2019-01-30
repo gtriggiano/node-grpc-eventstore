@@ -1,17 +1,16 @@
 // tslint:disable no-expression-statement
 import BigNumber from 'bignumber.js'
-import * as GRPC from 'grpc'
 import { noop } from 'lodash'
 
 import { DbResultsStream } from '../helpers/DbResultsStream'
 import { getStoredEventMessage } from '../helpers/getStoredEventMessage'
-import { ReadStoreForwardRequest, StoredEvent } from '../proto'
+import { IEventStoreServer } from '../proto'
 
 import { ImplementationConfiguration } from './index'
 
 type ReadStoreForwardFactory = (
   config: ImplementationConfiguration
-) => GRPC.handleServerStreamingCall<ReadStoreForwardRequest, StoredEvent>
+) => IEventStoreServer['readStoreForward']
 
 export const ReadStoreForward: ReadStoreForwardFactory = ({ db }) => call => {
   const fromEventId = BigNumber.maximum(0, call.request.getFromEventId())
