@@ -31,9 +31,10 @@ const padId = (id: string | number) => zeropad(`${id}`, 25)
 
 export const InMemoryDatabaseAdapter = (
   initialEvents: ReadonlyArray<DbStoredEvent> = []
-): DatabaseAdapter & {
-  readonly getAllEvents: () => ReadonlyArray<DbStoredEvent>
-} => {
+): DatabaseAdapter &
+  EventEmitter & {
+    readonly getAllEvents: () => ReadonlyArray<DbStoredEvent>
+  } => {
   const dbAdapter = new EventEmitter()
 
   // tslint:disable-next-line:readonly-array
@@ -208,11 +209,11 @@ export const InMemoryDatabaseAdapter = (
     return dbResults
   }
 
-  return {
+  return Object.assign(dbAdapter, {
     appendEvents,
     getAllEvents,
     getEvents,
     getEventsByStream,
     getEventsByStreamType,
-  }
+  })
 }
