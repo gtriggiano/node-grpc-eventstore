@@ -5,10 +5,10 @@ import { concat, ReplaySubject } from 'rxjs'
 // tslint:disable-next-line:no-submodule-imports
 import { filter } from 'rxjs/operators'
 
-import { DbResultsStream } from '../helpers/DbResultsStream'
-import { getStoredEventMessage } from '../helpers/getStoredEventMessage'
+import { makeStoredEventMessage } from '../helpers/messageFactories/StoredEvent'
+import { PersistencyEventsStream } from '../helpers/PersistencyEventsStream'
 import { IEventStoreServer, Messages } from '../proto'
-import { DbStoredEvent } from '../types'
+import { StoredEvent } from '../types'
 
 import { ImplementationConfiguration } from './index'
 
@@ -17,7 +17,7 @@ type CatchUpWithStoreFactory = (
 ) => IEventStoreServer['catchUpWithStore']
 
 export const CatchUpWithStore: CatchUpWithStoreFactory = ({
-  db,
+  persistency,
   eventsStream,
 }) => call => {
   call.on('end', () => onClientTermination())
@@ -26,12 +26,12 @@ export const CatchUpWithStore: CatchUpWithStoreFactory = ({
   let endCachedLiveStream = noop
   let idOfLastEventSent = new BigNumber(0)
 
-  const sendStoredEvent = (storedEvent: DbStoredEvent) => {
+  const sendStoredEvent = (storedEvent: StoredEvent) => {
     const eventId = new BigNumber(storedEvent.id)
     const shouldSendEvent = eventId.isGreaterThan(idOfLastEventSent)
     switch (shouldSendEvent) {
       case true:
-        call.write(getStoredEventMessage(storedEvent))
+        call.write(makeStoredEventMessage(storedEvent))
         idOfLastEventSent = eventId
         break
 
@@ -46,32 +46,32 @@ export const CatchUpWithStore: CatchUpWithStoreFactory = ({
       request.getFromEventId()
     ).toString()
 
-    let dbResults = db.getEvents({
+    let queryEmitter = persistency.getEvents({
       fromEventId,
-      limit: undefined,
+      limit: 0,
     })
 
-    let dbStream = DbResultsStream(dbResults)
+    let queryStream = PersistencyEventsStream(queryEmitter)
 
-    let subscription = dbStream.subscribe(
+    let subscription = queryStream.subscribe(
       storedEvent => sendStoredEvent(storedEvent),
       error => call.emit('error', error),
       () => {
-        dbResults = db.getEvents({
+        queryEmitter = persistency.getEvents({
           fromEventId: BigNumber.maximum(
             fromEventId,
             idOfLastEventSent
           ).toString(),
-          limit: undefined,
+          limit: 0,
         })
 
-        dbStream = DbResultsStream(dbResults)
+        queryStream = PersistencyEventsStream(queryEmitter)
 
         const filteredLiveStream = eventsStream.pipe(
           filter(({ id }) => new BigNumber(id).isGreaterThan(fromEventId))
         )
 
-        const cachedFilteredLiveStream = new ReplaySubject<DbStoredEvent>()
+        const cachedFilteredLiveStream = new ReplaySubject<StoredEvent>()
         const cachedFilteredLiveStreamSubscription = filteredLiveStream.subscribe(
           storedEvent => cachedFilteredLiveStream.next(storedEvent)
         )
@@ -85,12 +85,12 @@ export const CatchUpWithStore: CatchUpWithStoreFactory = ({
           )
         }
 
-        dbStream
+        queryStream
           .toPromise()
           .then(endCachedLiveStream)
           .catch(endCachedLiveStream)
 
-        subscription = dbStream
+        subscription = queryStream
           .pipe(stream =>
             concat(stream, cachedFilteredLiveStream, filteredLiveStream)
           )

@@ -1,15 +1,24 @@
 // tslint:disable no-expression-statement no-if-statement no-let
-import * as GRPC from 'grpc'
 import { uniq } from 'lodash'
 import uuid from 'uuid'
 
-import { getStoredEventMessage } from '../helpers/getStoredEventMessage'
-import { isValidEventName } from '../helpers/isValidEventName'
-import { isValidStream } from '../helpers/isValidStream'
-import { sanitizeStream } from '../helpers/sanitizeStream'
-import { streamToString } from '../helpers/streamToString'
+import { InsertionsList as InsertionsListCodec } from '../helpers/IOCodecs/InsertionsList'
+import { JsonPathErrorsReporter } from '../helpers/IOCodecs/JsonPathErrorsReporter'
+import {
+  makeAvailabilityErrorMessage,
+  makeConcurrencyErrorMessage,
+  makeInputValidationErrorMessage,
+  makeOverlappingInsertionsErrorMessage,
+  makeStoredEventMessage,
+  makeUnwritableStreamsErrorMessage,
+} from '../helpers/messageFactories'
 import { IEventStoreServer, Messages } from '../proto'
-import { DbError, DbStoredEvent, Stream, StreamInsertion } from '../types'
+import {
+  AppendOperationError,
+  StoredEvent,
+  Stream,
+  StreamInsertion,
+} from '../types'
 
 import { ImplementationConfiguration } from './index'
 
@@ -18,211 +27,142 @@ type AppendEventsToMultipleStreamsFactory = (
 ) => IEventStoreServer['appendEventsToMultipleStreams']
 
 export const AppendEventsToMultipleStreams: AppendEventsToMultipleStreamsFactory = ({
-  db,
+  persistency,
   onEventsStored,
   isStreamWritable,
 }) => (call, callback) => {
+  const result = new Messages.AppendOperationResult()
+
   const correlationId = call.request.getCorrelationId()
-  const insertions = call.request.toObject().insertionsList
+  const { insertionsList } = call.request.toObject()
 
   /**
    * Check if at least one insertion was passed
    */
-  if (!insertions.length) {
-    callback(null, new Messages.StoredEventsList())
+  if (!insertionsList.length) {
+    result.setSuccess(new Messages.StoredEventsList())
+    return callback(null, result)
   }
 
   /**
    * Check if the passed insertions contain at least one event
    */
-  if (
-    !insertions.reduce<any>(
-      (list, { eventsList }) => list.concat(eventsList),
-      []
-    ).length
-  ) {
-    callback(null, new Messages.StoredEventsList())
-    return
+  const totalEventstoPersist = insertionsList.reduce<
+    ReadonlyArray<Messages.Event.AsObject>
+  >((list, { eventsList }) => list.concat(eventsList), []).length
+  if (totalEventstoPersist === 0) {
+    result.setSuccess(new Messages.StoredEventsList())
+    return callback(null, result)
   }
 
   /**
-   * Check that all insertions specified streams are valid
+   * Validate insertions
    */
-  const indexOfInsertionWithUnvalidStream = insertions.findIndex(
-    ({ stream }) => !isValidStream(stream)
-  )
-  if (indexOfInsertionWithUnvalidStream >= 0) {
-    callback(
-      {
-        code: GRPC.status.INVALID_ARGUMENT,
-        message: `insertions[${indexOfInsertionWithUnvalidStream}]: ${JSON.stringify(
-          insertions[indexOfInsertionWithUnvalidStream].stream
-        )}`,
-        name: 'BAD_INSERTION_STREAM',
-      },
-      null
+  const inputValidation = InsertionsListCodec.decode(insertionsList)
+  if (inputValidation.isLeft()) {
+    const appendOperationError = new Messages.AppendOperationError()
+    appendOperationError.setInputValidationError(
+      makeInputValidationErrorMessage(
+        JsonPathErrorsReporter.report(inputValidation)
+      )
     )
-    return
+    result.setError(appendOperationError)
+    return callback(null, result)
   }
 
-  /**
-   * Sanitize insertions streams and map `eventsList` to `events`
-   */
-  const sanitizedInsertions = insertions.map<StreamInsertion>(
-    ({ stream, expectedStreamSize, eventsList }) => ({
-      events: eventsList,
-      expectedStreamSize,
-      stream: sanitizeStream(stream as Stream),
-    })
-  )
+  const insertions = inputValidation.value
 
   /**
    * Check if multiple insertions for the same stream were passed
    */
-  const namesOfStreams = sanitizedInsertions.map(({ stream }) =>
-    streamToString(stream)
+  const indexesOfOverlappingInsertions = getOverlappingInsertionsIndexes(
+    insertions
   )
-  const haveOverlappingInsertions =
-    namesOfStreams.length !== uniq(namesOfStreams).length
-  if (haveOverlappingInsertions) {
-    callback(
-      {
-        code: GRPC.status.INVALID_ARGUMENT,
-        message: `overlapping insertions for the following streams: ${JSON.stringify(
-          uniq(
-            namesOfStreams.filter((value, i) =>
-              namesOfStreams.includes(value, i + 1)
-            )
-          )
-        )}`,
-        name: 'OVERLAPPING_INSERTIONS',
-      },
-      null
+  if (indexesOfOverlappingInsertions !== undefined) {
+    const appendOperationError = new Messages.AppendOperationError()
+    appendOperationError.setOverlappingInsertionsError(
+      makeOverlappingInsertionsErrorMessage(indexesOfOverlappingInsertions)
     )
-    return
-  }
-
-  /**
-   * Check if expectedStreamSize is not valid for some insertion
-   */
-  const indexOfInsertionWithUnvalidExpectedStreamSize = insertions.findIndex(
-    ({ expectedStreamSize }) => expectedStreamSize < -2
-  )
-  if (indexOfInsertionWithUnvalidExpectedStreamSize >= 0) {
-    callback(
-      {
-        code: GRPC.status.INVALID_ARGUMENT,
-        message: `insertions[${indexOfInsertionWithUnvalidExpectedStreamSize}].expectedStreamSize should be >= -2`,
-        name: 'BAD_EXPECTED_STREAM_SIZE',
-      },
-      null
-    )
-    return
+    return callback(null, result)
   }
 
   /**
    * Check if some insertion is related to an unwritable stream
    */
-  const indexOfInsertionForUnwritableStream = sanitizedInsertions.findIndex(
-    ({ stream }) => !isStreamWritable(stream)
-  )
-  if (indexOfInsertionForUnwritableStream >= 0) {
-    callback(
-      {
-        code: GRPC.status.INVALID_ARGUMENT,
-        message: `insertions[${indexOfInsertionForUnwritableStream}]: ${JSON.stringify(
-          insertions[indexOfInsertionForUnwritableStream].stream
-        )}`,
-        name: 'INSERTION_STREAM_NOT_WRITABLE',
-      },
-      null
+  const unwritableStreams = insertions
+    .filter(({ eventsList }) => eventsList.length)
+    .map(({ stream }) => stream)
+    .filter(stream => !isStreamWritable(stream, call.metadata))
+  if (unwritableStreams.length) {
+    const appendOperationError = new Messages.AppendOperationError()
+    appendOperationError.setUnwritableStreamsError(
+      makeUnwritableStreamsErrorMessage(unwritableStreams)
     )
-    return
+    return callback(null, result)
   }
 
-  /**
-   * Check if some insertion contains an unvalid event
-   */
-  const indexOfInsertionWithUnvalidEventWithEventIndex = sanitizedInsertions.reduce<
-    undefined | [number, number]
-  >((res, { events }, idx) => {
-    if (res) return res
-    const indexOfUnvalidEvent = events.findIndex(
-      ({ name }) => !isValidEventName(name)
+  const onPersistenceSuccess = (storedEvents: ReadonlyArray<StoredEvent>) => {
+    const storedEventsListMessage = new Messages.StoredEventsList()
+    storedEventsListMessage.setStoredEventsList(
+      storedEvents.map(makeStoredEventMessage)
     )
-    return indexOfUnvalidEvent >= 0 ? [idx, indexOfUnvalidEvent] : undefined
-  }, undefined)
-  if (indexOfInsertionWithUnvalidEventWithEventIndex) {
-    callback(
-      {
-        code: GRPC.status.INVALID_ARGUMENT,
-        message: `insertions[${
-          indexOfInsertionWithUnvalidEventWithEventIndex[0]
-        }].events[${
-          indexOfInsertionWithUnvalidEventWithEventIndex[1]
-        }] has a not valid name: "${JSON.stringify(
-          sanitizedInsertions[indexOfInsertionWithUnvalidEventWithEventIndex[0]]
-            .events[indexOfInsertionWithUnvalidEventWithEventIndex[1]].name
-        )}"`,
-        name: 'EVENT_NAME_NOT_VALID',
-      },
-      null
-    )
-    return
-  }
+    result.setSuccess(storedEventsListMessage)
 
-  const dbResults = db.appendEvents(sanitizedInsertions, uuid(), correlationId)
-  const cleanListeners = () => dbResults.removeAllListeners()
-
-  const onDbStoredEvents = (storedEvents: ReadonlyArray<DbStoredEvent>) => {
-    const storedEventsListMessage = storedEvents.reduce<
-      Messages.StoredEventsList
-    >((message, storedEvent) => {
-      message.addEvents(getStoredEventMessage(storedEvent))
-      return message
-    }, new Messages.StoredEventsList())
-
-    cleanListeners()
     onEventsStored(storedEvents)
-    callback(null, storedEventsListMessage)
+    callback(null, result)
   }
 
-  const onDbError = (error: DbError) => {
-    cleanListeners()
-    switch (error.name) {
-      case 'CONCURRENCY':
-        const metadataMessage = new GRPC.Metadata()
-        error.failures.forEach(failure => {
-          metadataMessage.add(
-            streamToString(failure.stream),
-            JSON.stringify(failure)
-          )
-        })
-        callback(
-          {
-            code: GRPC.status.ABORTED,
-            message: error.message,
-            metadata: metadataMessage,
-            name: error.name,
-          },
-          null
-        )
-        break
+  const onPersistenceFailure = (error: AppendOperationError) => {
+    const appendOperationError = new Messages.AppendOperationError()
+    result.setError(appendOperationError)
 
-      case 'UNAVAILABLE':
-      default:
-        callback(
-          {
-            code: GRPC.status.UNAVAILABLE,
-            message: error.message,
-            name: error.name,
-          },
-          null
+    switch (error.type) {
+      case 'AVAILABILITY':
+        appendOperationError.setAvailabilityError(
+          makeAvailabilityErrorMessage(error)
         )
-        break
+        return callback(null, result)
+
+      case 'CONCURRENCY':
+        appendOperationError.setConcurrencyError(
+          makeConcurrencyErrorMessage(error.failures)
+        )
+        return callback(null, result)
     }
   }
 
-  dbResults.on('stored-events', onDbStoredEvents)
-  dbResults.on('error', onDbError)
+  const insertionEmitter = persistency.appendInsertions(
+    insertions,
+    uuid(),
+    correlationId
+  )
+  const cleanListeners = () => insertionEmitter.removeAllListeners()
+
+  insertionEmitter.on('stored-events', storedEvents => {
+    cleanListeners()
+    onPersistenceSuccess(storedEvents)
+  })
+  insertionEmitter.on('error', error => {
+    cleanListeners()
+    onPersistenceFailure(error)
+  })
+}
+
+export const streamToString = (stream: Stream) =>
+  `${stream.type.context}|${stream.type.name}${
+    stream.id ? `|${stream.id}` : ''
+  }`
+
+export const getOverlappingInsertionsIndexes = (
+  insertions: ReadonlyArray<StreamInsertion>
+) => {
+  const namesOfStreams = insertions.map(({ stream }) => streamToString(stream))
+  const thereAreOverlappingInsertions =
+    namesOfStreams.length !== uniq(namesOfStreams).length
+  return thereAreOverlappingInsertions
+    ? namesOfStreams
+        .map<[number, string]>((name, idx) => [idx, name])
+        .filter(([_, name], i) => namesOfStreams.includes(name, i + 1))
+        .map(([idx]) => idx)
+    : void 0
 }

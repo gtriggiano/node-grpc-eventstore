@@ -1,33 +1,37 @@
 import EventEmitter from 'eventemitter3'
 // tslint:disable-next-line:no-submodule-imports
 import { Either } from 'fp-ts/lib/Either'
+import * as GRPC from 'grpc'
 import StrictEventEmitter from 'strict-event-emitter-types'
 
 import { Messages } from './proto'
 
-export type WritableStreamChecker = (stream: Stream) => boolean
+export type WritableStreamChecker = (
+  stream: Stream,
+  callMetadata: GRPC.Metadata
+) => boolean
 
-export interface DatabaseStoredEvent extends Messages.StoredEvent.AsObject {
+export interface StoredEvent extends Messages.StoredEvent.AsObject {
   readonly stream: Stream
 }
 
-export interface DatabaseAdapter {
+export interface PersistencyAdapter {
   readonly appendInsertions: (
     insertions: ReadonlyArray<StreamInsertion>,
     transactionId: string,
     correlationId: string
-  ) => DatabaseAdapterInsertionEmitter
+  ) => PersistencyAdapterInsertionEmitter
   readonly getEvents: (
     request: ReadStoreForwardRequest
-  ) => DatabaseAdapterQueryEmitter
+  ) => PersistencyAdapterQueryEmitter
   readonly getEventsByStream: (
     request: ReadStreamForwardRequest
-  ) => DatabaseAdapterQueryEmitter
+  ) => PersistencyAdapterQueryEmitter
   readonly getEventsByStreamType: (
     request: ReadStreamTypeForwardRequest
-  ) => DatabaseAdapterQueryEmitter
+  ) => PersistencyAdapterQueryEmitter
   readonly getLastStoredEvent: () => Promise<
-    Either<PersistenceAvailabilityError, DatabaseStoredEvent | void>
+    Either<PersistenceAvailabilityError, StoredEvent | void>
   >
 }
 
@@ -35,10 +39,10 @@ export interface StreamInsertion extends Messages.StreamInsertion.AsObject {
   readonly stream: Stream
 }
 
-export type DatabaseAdapterInsertionEmitter = StrictEventEmitter<
+export type PersistencyAdapterInsertionEmitter = StrictEventEmitter<
   EventEmitter,
   {
-    readonly 'stored-events': ReadonlyArray<DatabaseStoredEvent>
+    readonly 'stored-events': ReadonlyArray<StoredEvent>
     readonly update: void
     readonly error: AppendOperationError
   }
@@ -75,10 +79,10 @@ export type ReadStreamTypeForwardRequest = Required<
   Messages.ReadStreamTypeForwardRequest.AsObject
 >
 
-export type DatabaseAdapterQueryEmitter = StrictEventEmitter<
+export type PersistencyAdapterQueryEmitter = StrictEventEmitter<
   EventEmitter,
   {
-    readonly event: DatabaseStoredEvent
+    readonly event: StoredEvent
     readonly end: void
     readonly error: PersistenceAvailabilityError
   }

@@ -4,13 +4,13 @@ import * as GRPC from 'grpc'
 import { eventsStreamFromStoreBus } from './helpers/eventsStreamFromStoreBus'
 import { EventStoreBus, SimpleStoreBus } from './helpers/SimpleStoreBus'
 import { Implementation, ImplementationConfiguration } from './Implementation'
-import { InMemoryDatabaseAdapter } from './InMemoryDatabaseAdapter'
+import { InMemoryPersistencyAdapter } from './InMemoryPersistencyAdapter'
 import { EventStoreService } from './proto/EventStore_grpc_pb'
-import { DatabaseAdapter, WritableStreamChecker } from './types'
+import { PersistencyAdapter, WritableStreamChecker } from './types'
 
 interface DefaultConfiguration {
   readonly credentials: GRPC.ServerCredentials
-  readonly databaseAdapter: DatabaseAdapter
+  readonly persistencyAdapter: PersistencyAdapter
   readonly isStreamWritable: WritableStreamChecker
   readonly port: number
   readonly storeBus: EventStoreBus
@@ -27,8 +27,8 @@ export type EventStoreNode = EventEmitter<'start' | 'stop' | 'stopping'> & {
 
 const defaultConfiguration: DefaultConfiguration = {
   credentials: GRPC.ServerCredentials.createInsecure(),
-  databaseAdapter: InMemoryDatabaseAdapter(),
   isStreamWritable: () => true,
+  persistencyAdapter: InMemoryPersistencyAdapter(),
   port: 50051,
   storeBus: SimpleStoreBus(),
 }
@@ -36,17 +36,23 @@ const defaultConfiguration: DefaultConfiguration = {
 export const EventStoreNode = (
   configuration: Partial<EventStoreNodeConfiguration> = {}
 ): EventStoreNode => {
-  const { credentials, databaseAdapter, isStreamWritable, port, storeBus } = {
+  const {
+    credentials,
+    isStreamWritable,
+    persistencyAdapter,
+    port,
+    storeBus,
+  } = {
     ...defaultConfiguration,
     ...configuration,
   }
 
   const implementationConfiguration: ImplementationConfiguration = {
-    db: databaseAdapter,
     eventsStream: eventsStreamFromStoreBus(storeBus),
     isStreamWritable,
     onEventsStored: storedEvents =>
       storeBus.publish(JSON.stringify(storedEvents)),
+    persistency: persistencyAdapter,
   }
 
   const node = new EventEmitter() as EventStoreNode

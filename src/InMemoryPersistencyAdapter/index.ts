@@ -5,14 +5,14 @@ import { flatten, last } from 'lodash'
 
 import { zeropad } from '../helpers/zeropad'
 import {
-  DatabaseAdapter,
-  DatabaseAdapterInsertionEmitter,
-  DatabaseAdapterQueryEmitter,
-  DatabaseStoredEvent,
   InsertionConcurrencyFailure,
+  PersistencyAdapter,
+  PersistencyAdapterInsertionEmitter,
+  PersistencyAdapterQueryEmitter,
   ReadStoreForwardRequest,
   ReadStreamForwardRequest,
   ReadStreamTypeForwardRequest,
+  StoredEvent,
   Stream,
   StreamInsertion,
   StreamType,
@@ -27,17 +27,18 @@ interface EventToStore {
 
 const padId = (id: string | number) => zeropad(`${id}`, 25)
 
-interface InMemoryDatabaseAdapterMethods extends DatabaseAdapter {
-  readonly getAllEvents: () => ReadonlyArray<DatabaseStoredEvent>
+interface InMemoryPersistencyAdapterMethods extends PersistencyAdapter {
+  readonly getAllEvents: () => ReadonlyArray<StoredEvent>
 }
 
-type InMemoryDatabaseAdapter = InMemoryDatabaseAdapterMethods & EventEmitter
+type InMemoryPersistencyAdapter = InMemoryPersistencyAdapterMethods &
+  EventEmitter
 
-export const InMemoryDatabaseAdapter = (
-  initialEvents: ReadonlyArray<DatabaseStoredEvent> = []
-): InMemoryDatabaseAdapter => {
+export const InMemoryPersistencyAdapter = (
+  initialEvents: ReadonlyArray<StoredEvent> = []
+): InMemoryPersistencyAdapter => {
   // tslint:disable-next-line:readonly-array
-  const events: DatabaseStoredEvent[] = initialEvents.slice()
+  const events: StoredEvent[] = initialEvents.slice()
 
   const getEventsOfStream = (stream: Stream) =>
     events.filter(
@@ -92,12 +93,12 @@ export const InMemoryDatabaseAdapter = (
     }))
   }
 
-  const adapter: InMemoryDatabaseAdapter = Object.assign<
+  const adapter: InMemoryPersistencyAdapter = Object.assign<
     EventEmitter,
-    InMemoryDatabaseAdapterMethods
+    InMemoryPersistencyAdapterMethods
   >(new EventEmitter(), {
     appendInsertions: (insertions, transactionId, correlationId) => {
-      const emitter: DatabaseAdapterInsertionEmitter = new EventEmitter()
+      const emitter: PersistencyAdapterInsertionEmitter = new EventEmitter()
 
       // tslint:disable no-expression-statement no-if-statement no-object-mutation
       process.nextTick(() => {
@@ -116,7 +117,7 @@ export const InMemoryDatabaseAdapter = (
         } else {
           const now = new Date().toISOString()
           const totalEvents = events.length
-          const eventsToAppend: ReadonlyArray<DatabaseStoredEvent> = flatten(
+          const eventsToAppend: ReadonlyArray<StoredEvent> = flatten(
             (processedInsertions as unknown) as ReadonlyArray<
               ReadonlyArray<EventToStore>
             >
@@ -140,7 +141,7 @@ export const InMemoryDatabaseAdapter = (
     },
     getAllEvents: () => events.slice(),
     getEvents: ({ fromEventId, limit }: ReadStoreForwardRequest) => {
-      const emitter: DatabaseAdapterQueryEmitter = new EventEmitter()
+      const emitter: PersistencyAdapterQueryEmitter = new EventEmitter()
 
       // tslint:disable-next-line:no-expression-statement
       process.nextTick(() => {
@@ -164,7 +165,7 @@ export const InMemoryDatabaseAdapter = (
       fromSequenceNumber,
       limit,
     }: ReadStreamForwardRequest) => {
-      const emitter: DatabaseAdapterQueryEmitter = new EventEmitter()
+      const emitter: PersistencyAdapterQueryEmitter = new EventEmitter()
 
       // tslint:disable-next-line:no-expression-statement
       process.nextTick(() => {
@@ -187,7 +188,7 @@ export const InMemoryDatabaseAdapter = (
       fromEventId,
       limit,
     }: ReadStreamTypeForwardRequest) => {
-      const emitter: DatabaseAdapterQueryEmitter = new EventEmitter()
+      const emitter: PersistencyAdapterQueryEmitter = new EventEmitter()
 
       // tslint:disable-next-line:no-expression-statement
       process.nextTick(() => {

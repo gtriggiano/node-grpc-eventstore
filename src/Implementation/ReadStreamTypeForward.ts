@@ -2,10 +2,8 @@
 import BigNumber from 'bignumber.js'
 import * as GRPC from 'grpc'
 
-import { DbResultsStream } from '../helpers/DbResultsStream'
-import { getStoredEventMessage } from '../helpers/getStoredEventMessage'
-import { isValidStreamType } from '../helpers/isValidStreamType'
-import { sanitizeStreamType } from '../helpers/sanitizeStreamType'
+import { makeStoredEventMessage } from '../helpers/messageFactories/StoredEvent'
+import { PersistencyEventsStream } from '../helpers/PersistencyEventsStream'
 import { IEventStoreServer } from '../proto'
 
 import { ImplementationConfiguration } from './index'
@@ -15,7 +13,7 @@ type ReadStreamTypeForwardFactory = (
 ) => IEventStoreServer['readStreamTypeForward']
 
 export const ReadStreamTypeForward: ReadStreamTypeForwardFactory = ({
-  db,
+  persistency,
 }) => call => {
   const streamTypeMessage = call.request.getStreamType()
 
@@ -28,32 +26,26 @@ export const ReadStreamTypeForward: ReadStreamTypeForwardFactory = ({
     return
   }
 
-  const streamType = streamTypeMessage.toObject()
-
-  if (!isValidStreamType(streamType)) {
-    call.emit('error', {
-      code: GRPC.status.INVALID_ARGUMENT,
-      message: 'STREAM_TYPE_NOT_VALID',
-      name: 'STREAM_TYPE_NOT_VALID',
-    })
-    return
-  }
-
-  const observedStreamType = sanitizeStreamType(streamType)
+  const observedStreamType = streamTypeMessage.toObject()
   const fromEventId = BigNumber.maximum(0, call.request.getFromEventId())
   const limit = call.request.getLimit()
 
-  const dbResults = db.getEventsByStreamType({
+  const queryEmitter = persistency.getEventsByStreamType({
     fromEventId: fromEventId.toString(),
-    limit: limit > 0 ? limit : undefined,
+    limit: Math.max(0, limit),
     streamType: observedStreamType,
   })
 
-  const dbStream = DbResultsStream(dbResults)
+  const eventsStream = PersistencyEventsStream(queryEmitter)
 
-  dbStream.subscribe(
-    storedEvent => call.write(getStoredEventMessage(storedEvent)),
-    error => call.emit('error', error),
+  eventsStream.subscribe(
+    storedEvent => call.write(makeStoredEventMessage(storedEvent)),
+    error =>
+      call.emit('error', {
+        code: GRPC.status.UNAVAILABLE,
+        message: error.message,
+        name: error.name,
+      }),
     () => call.end()
   )
 }

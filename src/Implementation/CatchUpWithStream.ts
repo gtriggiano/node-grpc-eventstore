@@ -1,15 +1,14 @@
 // tslint:disable no-expression-statement no-let no-if-statement
+import * as GRPC from 'grpc'
 import { noop } from 'lodash'
 import { concat, ReplaySubject } from 'rxjs'
 // tslint:disable-next-line:no-submodule-imports
 import { filter } from 'rxjs/operators'
 
-import { DbResultsStream } from '../helpers/DbResultsStream'
-import { getStoredEventMessage } from '../helpers/getStoredEventMessage'
-import { isValidStream } from '../helpers/isValidStream'
-import { sanitizeStream } from '../helpers/sanitizeStream'
+import { makeStoredEventMessage } from '../helpers/messageFactories/StoredEvent'
+import { PersistencyEventsStream } from '../helpers/PersistencyEventsStream'
 import { IEventStoreServer, Messages } from '../proto'
-import { DbStoredEvent } from '../types'
+import { StoredEvent } from '../types'
 
 import { ImplementationConfiguration } from './index'
 
@@ -18,7 +17,7 @@ type CatchUpWithStreamFactory = (
 ) => IEventStoreServer['catchUpWithStream']
 
 export const CatchUpWithStream: CatchUpWithStreamFactory = ({
-  db,
+  persistency,
   eventsStream,
 }) => call => {
   call.on('end', () => onClientTermination())
@@ -27,12 +26,12 @@ export const CatchUpWithStream: CatchUpWithStreamFactory = ({
   let endCachedLiveStream = noop
   let sequenceNumberOfLastEventSent = 0
 
-  const sendStoredEvent = (storedEvent: DbStoredEvent) => {
+  const sendStoredEvent = (storedEvent: StoredEvent) => {
     const shouldSendEvent =
       storedEvent.sequenceNumber > sequenceNumberOfLastEventSent
     switch (shouldSendEvent) {
       case true:
-        call.write(getStoredEventMessage(storedEvent))
+        call.write(makeStoredEventMessage(storedEvent))
         sequenceNumberOfLastEventSent = storedEvent.sequenceNumber
         break
 
@@ -45,88 +44,101 @@ export const CatchUpWithStream: CatchUpWithStreamFactory = ({
     const streamMessage = request.getStream()
     const stream = streamMessage && streamMessage.toObject()
 
-    if (isValidStream(stream)) {
-      const observedStream = sanitizeStream(stream)
-      const requestFromSequenceNumber = Math.max(
-        0,
-        request.getFromSequenceNumber()
-      )
-
-      let dbResults = db.getEventsByStream({
-        fromSequenceNumber: requestFromSequenceNumber,
-        limit: undefined,
-        stream: observedStream,
+    if (!stream) {
+      call.emit('error', {
+        code: GRPC.status.INVALID_ARGUMENT,
+        message: 'STREAM_NOT_PROVIDED',
+        name: 'STREAM_NOT_PROVIDED',
       })
+      return
+    }
 
-      let dbStream = DbResultsStream(dbResults)
+    if (!stream.type) {
+      call.emit('error', {
+        code: GRPC.status.INVALID_ARGUMENT,
+        message: 'STREAM_TYPE_NOT_PROVIDED',
+        name: 'STREAM_TYPE_NOT_PROVIDED',
+      })
+      return
+    }
 
-      let subscription = dbStream.subscribe(
-        storedEvent => sendStoredEvent(storedEvent),
-        error => call.emit('error', error),
-        () => {
-          dbResults = db.getEventsByStream({
-            fromSequenceNumber: Math.max(
-              sequenceNumberOfLastEventSent,
-              requestFromSequenceNumber
-            ),
-            limit: undefined,
-            stream: observedStream,
-          })
+    const observedStream = {
+      id: stream.id,
+      type: stream.type,
+    }
 
-          dbStream = DbResultsStream(dbResults)
+    const requestFromSequenceNumber = Math.max(
+      0,
+      request.getFromSequenceNumber()
+    )
 
-          const filteredLiveStream = eventsStream.pipe(
-            filter(
-              storedEvent =>
-                storedEvent.stream.id === observedStream.id &&
-                storedEvent.stream.type.context ===
-                  observedStream.type.context &&
-                storedEvent.stream.type.name === observedStream.type.name &&
-                storedEvent.sequenceNumber > requestFromSequenceNumber
-            )
+    let queryEmitter = persistency.getEventsByStream({
+      fromSequenceNumber: requestFromSequenceNumber,
+      limit: 0,
+      stream: observedStream,
+    })
+
+    let queryStream = PersistencyEventsStream(queryEmitter)
+
+    let subscription = queryStream.subscribe(
+      storedEvent => sendStoredEvent(storedEvent),
+      error => call.emit('error', error),
+      () => {
+        queryEmitter = persistency.getEventsByStream({
+          fromSequenceNumber: Math.max(
+            sequenceNumberOfLastEventSent,
+            requestFromSequenceNumber
+          ),
+          limit: 0,
+          stream: observedStream,
+        })
+
+        queryStream = PersistencyEventsStream(queryEmitter)
+
+        const filteredLiveStream = eventsStream.pipe(
+          filter(
+            storedEvent =>
+              storedEvent.stream.id === observedStream.id &&
+              storedEvent.stream.type.context === observedStream.type.context &&
+              storedEvent.stream.type.name === observedStream.type.name &&
+              storedEvent.sequenceNumber > requestFromSequenceNumber
           )
+        )
 
-          const cachedFilteredLiveStream = new ReplaySubject<DbStoredEvent>()
-          const cachedFilteredLiveStreamSubscription = filteredLiveStream.subscribe(
-            storedEvent => cachedFilteredLiveStream.next(storedEvent)
+        const cachedFilteredLiveStream = new ReplaySubject<StoredEvent>()
+        const cachedFilteredLiveStreamSubscription = filteredLiveStream.subscribe(
+          storedEvent => cachedFilteredLiveStream.next(storedEvent)
+        )
+
+        endCachedLiveStream = () => {
+          cachedFilteredLiveStreamSubscription.unsubscribe()
+          cachedFilteredLiveStream.complete()
+          setTimeout(
+            () => (cachedFilteredLiveStream as any)._events.splice(0),
+            10
           )
-
-          endCachedLiveStream = () => {
-            cachedFilteredLiveStreamSubscription.unsubscribe()
-            cachedFilteredLiveStream.complete()
-            setTimeout(
-              () => (cachedFilteredLiveStream as any)._events.splice(0),
-              10
-            )
-          }
-
-          dbStream
-            .toPromise()
-            .then(endCachedLiveStream)
-            .catch(endCachedLiveStream)
-
-          subscription = dbStream
-            .pipe(strm =>
-              concat(strm, cachedFilteredLiveStream, filteredLiveStream)
-            )
-            .subscribe(
-              storedEvent => sendStoredEvent(storedEvent),
-              error => call.emit('error', error)
-            )
         }
-      )
 
-      onClientTermination = () => {
-        endCachedLiveStream()
-        subscription.unsubscribe()
-        call.end()
+        queryStream
+          .toPromise()
+          .then(endCachedLiveStream)
+          .catch(endCachedLiveStream)
+
+        subscription = queryStream
+          .pipe(strm =>
+            concat(strm, cachedFilteredLiveStream, filteredLiveStream)
+          )
+          .subscribe(
+            storedEvent => sendStoredEvent(storedEvent),
+            error => call.emit('error', error)
+          )
       }
-    } else {
-      try {
-        isValidStream(stream, true)
-      } catch (error) {
-        call.emit('error', {})
-      }
+    )
+
+    onClientTermination = () => {
+      endCachedLiveStream()
+      subscription.unsubscribe()
+      call.end()
     }
   })
 }

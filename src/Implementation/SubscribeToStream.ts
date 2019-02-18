@@ -2,11 +2,8 @@
 import * as GRPC from 'grpc'
 import { filter } from 'rxjs/operators'
 
-import { getStoredEventMessage } from '../helpers/getStoredEventMessage'
-import { isValidStreamType } from '../helpers/isValidStreamType'
-import { sanitizeStream } from '../helpers/sanitizeStream'
+import { makeStoredEventMessage } from '../helpers/messageFactories/StoredEvent'
 import { IEventStoreServer, Messages } from '../proto'
-import { Stream } from '../types'
 
 import { ImplementationConfiguration } from './index'
 
@@ -46,17 +43,10 @@ export const SubscribeToStream: SubscribeToStreamFactory = ({
       return
     }
 
-    if (!isValidStreamType(stream.type)) {
-      call.emit('error', {
-        code: GRPC.status.INVALID_ARGUMENT,
-        message: 'STREAM_TYPE_NOT_VALID',
-        name: 'STREAM_TYPE_NOT_VALID',
-      })
-      call.removeAllListeners()
-      return
+    const observedStream = {
+      id: stream.id,
+      type: stream.type,
     }
-
-    const observedStream = sanitizeStream(stream as Stream)
 
     const subscription = eventsStream
       .pipe(
@@ -68,8 +58,13 @@ export const SubscribeToStream: SubscribeToStreamFactory = ({
         )
       )
       .subscribe(
-        storedEvent => call.write(getStoredEventMessage(storedEvent)),
-        error => call.emit('error', error)
+        storedEvent => call.write(makeStoredEventMessage(storedEvent)),
+        error =>
+          call.emit('error', {
+            code: GRPC.status.UNAVAILABLE,
+            message: error.message,
+            name: error.name,
+          })
       )
 
     onClientTermination = () => {

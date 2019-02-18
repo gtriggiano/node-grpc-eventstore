@@ -1,12 +1,9 @@
 // tslint:disable no-expression-statement no-if-statement
 import * as GRPC from 'grpc'
 
-import { DbResultsStream } from '../helpers/DbResultsStream'
-import { getStoredEventMessage } from '../helpers/getStoredEventMessage'
-import { isValidStreamType } from '../helpers/isValidStreamType'
-import { sanitizeStream } from '../helpers/sanitizeStream'
+import { makeStoredEventMessage } from '../helpers/messageFactories/StoredEvent'
+import { PersistencyEventsStream } from '../helpers/PersistencyEventsStream'
 import { IEventStoreServer } from '../proto'
-import { Stream } from '../types'
 
 import { ImplementationConfiguration } from './index'
 
@@ -14,7 +11,9 @@ type ReadStreamForwardFactory = (
   config: ImplementationConfiguration
 ) => IEventStoreServer['readStreamForward']
 
-export const ReadStreamForward: ReadStreamForwardFactory = ({ db }) => call => {
+export const ReadStreamForward: ReadStreamForwardFactory = ({
+  persistency,
+}) => call => {
   const streamMessage = call.request.getStream()
 
   if (!streamMessage) {
@@ -36,30 +35,29 @@ export const ReadStreamForward: ReadStreamForwardFactory = ({ db }) => call => {
     return
   }
 
-  if (!isValidStreamType(stream.type)) {
-    call.emit('error', {
-      code: GRPC.status.INVALID_ARGUMENT,
-      message: 'STREAM_TYPE_NOT_VALID',
-      name: 'STREAM_TYPE_NOT_VALID',
-    })
-    return
+  const observedStream = {
+    id: stream.id,
+    type: stream.type,
   }
-
-  const observedStream = sanitizeStream(stream as Stream)
   const fromSequenceNumber = call.request.getFromSequenceNumber()
   const limit = call.request.getLimit()
 
-  const dbResults = db.getEventsByStream({
+  const queryEmitter = persistency.getEventsByStream({
     fromSequenceNumber: Math.max(0, fromSequenceNumber),
-    limit: limit > 0 ? limit : undefined,
+    limit: Math.max(0, limit),
     stream: observedStream,
   })
 
-  const dbStream = DbResultsStream(dbResults)
+  const eventsStream = PersistencyEventsStream(queryEmitter)
 
-  dbStream.subscribe(
-    storedEvent => call.write(getStoredEventMessage(storedEvent)),
-    error => call.emit('error', error),
+  eventsStream.subscribe(
+    storedEvent => call.write(makeStoredEventMessage(storedEvent)),
+    error =>
+      call.emit('error', {
+        code: GRPC.status.UNAVAILABLE,
+        message: error.message,
+        name: error.name,
+      }),
     () => call.end()
   )
 }

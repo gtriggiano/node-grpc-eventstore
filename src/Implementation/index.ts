@@ -1,13 +1,18 @@
 import { ConnectableObservable } from 'rxjs'
 
 import { IEventStoreServer } from '../proto'
-import { DatabaseAdapter, DbStoredEvent, WritableStreamChecker } from '../types'
+import {
+  PersistencyAdapter,
+  StoredEvent,
+  WritableStreamChecker,
+} from '../types'
 
 import { AppendEventsToMultipleStreams } from './AppendEventsToMultipleStreams'
 import { AppendEventsToStream } from './AppendEventsToStream'
 import { CatchUpWithStore } from './CatchUpWithStore'
 import { CatchUpWithStream } from './CatchUpWithStream'
 import { CatchUpWithStreamType } from './CatchUpWithStreamType'
+import { GetLastEvent } from './GetLastEvent'
 import { Heartbeat } from './Heartbeat'
 import { Ping } from './Ping'
 import { ReadStoreForward } from './ReadStoreForward'
@@ -18,10 +23,10 @@ import { SubscribeToStream } from './SubscribeToStream'
 import { SubscribeToStreamType } from './SubscribeToStreamType'
 
 export interface ImplementationConfiguration {
-  readonly db: DatabaseAdapter
+  readonly persistency: PersistencyAdapter
   readonly isStreamWritable: WritableStreamChecker
-  readonly eventsStream: ConnectableObservable<DbStoredEvent>
-  readonly onEventsStored: (storedEvents: ReadonlyArray<DbStoredEvent>) => void
+  readonly eventsStream: ConnectableObservable<StoredEvent>
+  readonly onEventsStored: (storedEvents: ReadonlyArray<StoredEvent>) => void
 }
 
 export const Implementation = (
@@ -32,6 +37,7 @@ export const Implementation = (
   catchUpWithStore: CatchUpWithStore(config),
   catchUpWithStream: CatchUpWithStream(config),
   catchUpWithStreamType: CatchUpWithStreamType(config),
+  getLastEvent: GetLastEvent(config),
   heartbeat: Heartbeat(),
   ping: Ping(),
   readStoreForward: ReadStoreForward(config),

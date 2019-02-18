@@ -3,14 +3,14 @@ import path from 'path'
 export * from './EventStoreNode'
 export { SimpleStoreBus } from './helpers/SimpleStoreBus'
 export { EventStoreBus } from './helpers/SimpleStoreBus'
-export { InMemoryDatabaseAdapter } from './InMemoryDatabaseAdapter'
+export { InMemoryPersistencyAdapter } from './InMemoryPersistencyAdapter'
 export * from './proto'
 export {
-  DatabaseAdapter,
-  DbConcurrencyError,
-  DbUnavaliableError,
-  DbError,
-  DbStoredEvent,
+  PersistencyAdapter,
+  PersistenceConcurrencyError,
+  PersistenceAvailabilityError,
+  AppendOperationError,
+  StoredEvent,
 } from './types'
 
 export const PROTOCOL_FILE_PATH = path.resolve(

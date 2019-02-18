@@ -1,5 +1,7 @@
 // tslint:disable no-expression-statement
-import { getStoredEventMessage } from '../helpers/getStoredEventMessage'
+import * as GRPC from 'grpc'
+
+import { makeStoredEventMessage } from '../helpers/messageFactories/StoredEvent'
 import { IEventStoreServer } from '../proto'
 
 import { ImplementationConfiguration } from './index'
@@ -18,8 +20,13 @@ export const SubscribeToStore: SubscribeToStoreFactory = ({
 
   call.once('data', () => {
     const subscription = eventsStream.subscribe(
-      storedEvent => call.write(getStoredEventMessage(storedEvent)),
-      error => call.emit('error', error)
+      storedEvent => call.write(makeStoredEventMessage(storedEvent)),
+      error =>
+        call.emit('error', {
+          code: GRPC.status.UNAVAILABLE,
+          message: error.message,
+          name: error.name,
+        })
     )
 
     onClientTermination = () => {

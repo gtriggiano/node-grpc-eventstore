@@ -11,7 +11,7 @@ import {
   makeUnwritableStreamsErrorMessage,
 } from '../helpers/messageFactories'
 import { IEventStoreServer, Messages } from '../proto'
-import { AppendOperationError, DatabaseStoredEvent } from '../types'
+import { AppendOperationError, StoredEvent } from '../types'
 
 import { ImplementationConfiguration } from './index'
 
@@ -23,7 +23,7 @@ type AppendEventsToStreamFactory = (
 ) => IEventStoreServer['appendEventsToStream']
 
 export const AppendEventsToStream: AppendEventsToStreamFactory = ({
-  db,
+  persistency,
   onEventsStored,
   isStreamWritable,
 }) => (call, callback) => {
@@ -50,7 +50,10 @@ export const AppendEventsToStream: AppendEventsToStreamFactory = ({
   const insertion = inputValidation.value
 
   // Permission to write check
-  if (insertion.eventsList.length && !isStreamWritable(insertion.stream)) {
+  if (
+    insertion.eventsList.length &&
+    !isStreamWritable(insertion.stream, call.metadata)
+  ) {
     const appendOperationError = new Messages.AppendOperationError()
     appendOperationError.setUnwritableStreamsError(
       makeUnwritableStreamsErrorMessage([insertion.stream])
@@ -59,9 +62,7 @@ export const AppendEventsToStream: AppendEventsToStreamFactory = ({
     return callback(null, result)
   }
 
-  const onPersistenceSuccess = (
-    storedEvents: ReadonlyArray<DatabaseStoredEvent>
-  ) => {
+  const onPersistenceSuccess = (storedEvents: ReadonlyArray<StoredEvent>) => {
     const storedEventsListMessage = new Messages.StoredEventsList()
     storedEventsListMessage.setStoredEventsList(
       storedEvents.map(makeStoredEventMessage)
@@ -91,14 +92,18 @@ export const AppendEventsToStream: AppendEventsToStreamFactory = ({
     }
   }
 
-  const resultsEmitter = db.appendInsertions([insertion], uuid(), correlationId)
-  const cleanListeners = () => resultsEmitter.removeAllListeners()
+  const insertionEmitter = persistency.appendInsertions(
+    [insertion],
+    uuid(),
+    correlationId
+  )
+  const cleanListeners = () => insertionEmitter.removeAllListeners()
 
-  resultsEmitter.on('stored-events', storedEvents => {
+  insertionEmitter.on('stored-events', storedEvents => {
     cleanListeners()
     onPersistenceSuccess(storedEvents)
   })
-  resultsEmitter.on('error', error => {
+  insertionEmitter.on('error', error => {
     cleanListeners()
     onPersistenceFailure(error)
   })
