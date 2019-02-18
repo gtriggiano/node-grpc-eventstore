@@ -17,7 +17,9 @@ export const StreamTypeNameOrContext = new t.Type<StreamTypeNameOrContext>(
       : t.failure(
           u,
           c,
-          'should be a string matching /^[a-zA-Z][a-zA-Z0-9_-]*$/'
+          `should be a string matching /^[a-zA-Z][a-zA-Z0-9_-]*$/. Received: ${JSON.stringify(
+            u
+          )}`
         ),
   t.identity
 )
