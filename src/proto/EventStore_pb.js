@@ -1181,12 +1181,38 @@ proto.grpceventstore.StoredEvent.prototype.setTransactionId = function(value) {
  * @constructor
  */
 proto.grpceventstore.GetLastEventResult = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+  jspb.Message.initialize(this, opt_data, 0, -1, null, proto.grpceventstore.GetLastEventResult.oneofGroups_);
 };
 goog.inherits(proto.grpceventstore.GetLastEventResult, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   proto.grpceventstore.GetLastEventResult.displayName = 'proto.grpceventstore.GetLastEventResult';
 }
+/**
+ * Oneof group definitions for this message. Each group defines the field
+ * numbers belonging to that group. When of these fields' value is set, all
+ * other fields in the group are cleared. During deserialization, if multiple
+ * fields are encountered for a group, only the last value seen will be kept.
+ * @private {!Array<!Array<number>>}
+ * @const
+ */
+proto.grpceventstore.GetLastEventResult.oneofGroups_ = [[1,2]];
+
+/**
+ * @enum {number}
+ */
+proto.grpceventstore.GetLastEventResult.ResultCase = {
+  RESULT_NOT_SET: 0,
+  EVENT: 1,
+  AVAILABILITY_ERROR: 2
+};
+
+/**
+ * @return {proto.grpceventstore.GetLastEventResult.ResultCase}
+ */
+proto.grpceventstore.GetLastEventResult.prototype.getResultCase = function() {
+  return /** @type {proto.grpceventstore.GetLastEventResult.ResultCase} */(jspb.Message.computeOneofCase(this, proto.grpceventstore.GetLastEventResult.oneofGroups_[0]));
+};
+
 
 
 if (jspb.Message.GENERATE_TO_OBJECT) {
@@ -1216,7 +1242,8 @@ proto.grpceventstore.GetLastEventResult.prototype.toObject = function(opt_includ
  */
 proto.grpceventstore.GetLastEventResult.toObject = function(includeInstance, msg) {
   var f, obj = {
-    event: (f = msg.getEvent()) && proto.grpceventstore.StoredEvent.toObject(includeInstance, f)
+    event: (f = msg.getEvent()) && proto.grpceventstore.StoredEvent.toObject(includeInstance, f),
+    availabilityError: (f = msg.getAvailabilityError()) && proto.grpceventstore.AvailabilityError.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -1258,6 +1285,11 @@ proto.grpceventstore.GetLastEventResult.deserializeBinaryFromReader = function(m
       reader.readMessage(value,proto.grpceventstore.StoredEvent.deserializeBinaryFromReader);
       msg.setEvent(value);
       break;
+    case 2:
+      var value = new proto.grpceventstore.AvailabilityError;
+      reader.readMessage(value,proto.grpceventstore.AvailabilityError.deserializeBinaryFromReader);
+      msg.setAvailabilityError(value);
+      break;
     default:
       reader.skipField();
       break;
@@ -1295,6 +1327,14 @@ proto.grpceventstore.GetLastEventResult.serializeBinaryToWriter = function(messa
       proto.grpceventstore.StoredEvent.serializeBinaryToWriter
     );
   }
+  f = message.getAvailabilityError();
+  if (f != null) {
+    writer.writeMessage(
+      2,
+      f,
+      proto.grpceventstore.AvailabilityError.serializeBinaryToWriter
+    );
+  }
 };
 
 
@@ -1310,7 +1350,7 @@ proto.grpceventstore.GetLastEventResult.prototype.getEvent = function() {
 
 /** @param {?proto.grpceventstore.StoredEvent|undefined} value */
 proto.grpceventstore.GetLastEventResult.prototype.setEvent = function(value) {
-  jspb.Message.setWrapperField(this, 1, value);
+  jspb.Message.setOneofWrapperField(this, 1, proto.grpceventstore.GetLastEventResult.oneofGroups_[0], value);
 };
 
 
@@ -1325,6 +1365,36 @@ proto.grpceventstore.GetLastEventResult.prototype.clearEvent = function() {
  */
 proto.grpceventstore.GetLastEventResult.prototype.hasEvent = function() {
   return jspb.Message.getField(this, 1) != null;
+};
+
+
+/**
+ * optional AvailabilityError availability_error = 2;
+ * @return {?proto.grpceventstore.AvailabilityError}
+ */
+proto.grpceventstore.GetLastEventResult.prototype.getAvailabilityError = function() {
+  return /** @type{?proto.grpceventstore.AvailabilityError} */ (
+    jspb.Message.getWrapperField(this, proto.grpceventstore.AvailabilityError, 2));
+};
+
+
+/** @param {?proto.grpceventstore.AvailabilityError|undefined} value */
+proto.grpceventstore.GetLastEventResult.prototype.setAvailabilityError = function(value) {
+  jspb.Message.setOneofWrapperField(this, 2, proto.grpceventstore.GetLastEventResult.oneofGroups_[0], value);
+};
+
+
+proto.grpceventstore.GetLastEventResult.prototype.clearAvailabilityError = function() {
+  this.setAvailabilityError(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {!boolean}
+ */
+proto.grpceventstore.GetLastEventResult.prototype.hasAvailabilityError = function() {
+  return jspb.Message.getField(this, 2) != null;
 };
 
 

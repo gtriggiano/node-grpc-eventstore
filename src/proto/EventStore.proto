@@ -110,7 +110,11 @@ message StoredEvent {
 }
 
 message GetLastEventResult {
-  StoredEvent event = 1;
+  oneof result {
+    StoredEvent event = 1;
+    AvailabilityError availability_error = 2;
+  }
+  
 }
 
 message CatchUpWithStoreRequest {

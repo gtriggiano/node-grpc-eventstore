@@ -1,7 +1,10 @@
 // tslint:disable no-expression-statement no-if-statement
 import * as GRPC from 'grpc'
 
-import { makeStoredEventMessage } from '../helpers/messageFactories/StoredEvent'
+import {
+  makeAvailabilityErrorMessage,
+  makeStoredEventMessage,
+} from '../helpers/messageFactories'
 import { IEventStoreServer, Messages } from '../proto'
 
 import { ImplementationConfiguration } from './index'
@@ -16,21 +19,14 @@ export const GetLastEvent: GetLastEventFactory = ({ persistency }) => async (
 ) => {
   const result = new Messages.GetLastEventResult()
 
-  const dbResult = await persistency.getLastStoredEvent()
+  const persistencyResponse = await persistency.getLastStoredEvent()
 
-  if (dbResult.isLeft()) {
-    return callback(
-      {
-        code: GRPC.status.UNAVAILABLE,
-        message: dbResult.value.message,
-        name: dbResult.value.name || dbResult.value.type,
-      },
-      null
+  if (persistencyResponse.isLeft()) {
+    result.setAvailabilityError(
+      makeAvailabilityErrorMessage(persistencyResponse.value)
     )
-  }
-
-  if (dbResult.value) {
-    result.setEvent(makeStoredEventMessage(dbResult.value))
+  } else if (persistencyResponse.value) {
+    result.setEvent(makeStoredEventMessage(persistencyResponse.value))
   }
 
   callback(null, result)

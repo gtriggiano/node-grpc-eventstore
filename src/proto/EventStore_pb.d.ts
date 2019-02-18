@@ -181,6 +181,14 @@ export class GetLastEventResult extends jspb.Message {
     setEvent(value?: StoredEvent): void;
 
 
+    hasAvailabilityError(): boolean;
+    clearAvailabilityError(): void;
+    getAvailabilityError(): AvailabilityError | undefined;
+    setAvailabilityError(value?: AvailabilityError): void;
+
+
+    getResultCase(): GetLastEventResult.ResultCase;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): GetLastEventResult.AsObject;
     static toObject(includeInstance: boolean, msg: GetLastEventResult): GetLastEventResult.AsObject;
@@ -194,7 +202,18 @@ export class GetLastEventResult extends jspb.Message {
 export namespace GetLastEventResult {
     export type AsObject = {
         event?: StoredEvent.AsObject,
+        availabilityError?: AvailabilityError.AsObject,
     }
+
+    export enum ResultCase {
+        RESULT_NOT_SET = 0,
+    
+    EVENT = 1,
+
+    AVAILABILITY_ERROR = 2,
+
+    }
+
 }
 
 export class CatchUpWithStoreRequest extends jspb.Message { 
