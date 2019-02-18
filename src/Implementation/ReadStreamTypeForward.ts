@@ -32,7 +32,7 @@ export const ReadStreamTypeForward: ReadStreamTypeForwardFactory = ({
 
   const queryEmitter = persistency.getEventsByStreamType({
     fromEventId: fromEventId.toString(),
-    limit: Math.max(0, limit),
+    limit: limit > 0 ? limit : undefined,
     streamType: observedStreamType,
   })
 

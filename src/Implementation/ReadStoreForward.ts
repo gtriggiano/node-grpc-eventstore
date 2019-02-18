@@ -23,7 +23,7 @@ export const ReadStoreForward: ReadStoreForwardFactory = ({
 
   const queryEmitter = persistency.getEvents({
     fromEventId: fromEventId.toString(),
-    limit: Math.max(0, limit),
+    limit: limit > 0 ? limit : undefined,
   })
 
   const eventsStream = PersistencyEventsStream(queryEmitter)

@@ -44,7 +44,7 @@ export const ReadStreamForward: ReadStreamForwardFactory = ({
 
   const queryEmitter = persistency.getEventsByStream({
     fromSequenceNumber: Math.max(0, fromSequenceNumber),
-    limit: Math.max(0, limit),
+    limit: limit > 0 ? limit : undefined,
     stream: observedStream,
   })
 

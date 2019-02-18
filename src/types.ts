@@ -4,6 +4,7 @@ import { Either } from 'fp-ts/lib/Either'
 import * as GRPC from 'grpc'
 import StrictEventEmitter from 'strict-event-emitter-types'
 
+import { Omit } from 'lodash'
 import { Messages } from './proto'
 
 export type WritableStreamChecker = (
@@ -70,14 +71,24 @@ export interface PersistenceConcurrencyError {
   readonly failures: ReadonlyArray<InsertionConcurrencyFailure>
 }
 
-export type ReadStoreForwardRequest = Messages.ReadStoreForwardRequest.AsObject
-export interface ReadStreamForwardRequest
-  extends Messages.ReadStreamForwardRequest.AsObject {
-  readonly stream: Stream
+export type ReadStoreForwardRequest = Omit<
+  Messages.ReadStoreForwardRequest.AsObject,
+  'limit'
+> & {
+  readonly limit?: number
 }
-export type ReadStreamTypeForwardRequest = Required<
-  Messages.ReadStreamTypeForwardRequest.AsObject
->
+export type ReadStreamForwardRequest = Omit<
+  Required<Messages.ReadStreamForwardRequest.AsObject>,
+  'limit'
+> & {
+  readonly limit?: number
+}
+export type ReadStreamTypeForwardRequest = Omit<
+  Required<Messages.ReadStreamTypeForwardRequest.AsObject>,
+  'limit'
+> & {
+  readonly limit?: number
+}
 
 export type PersistencyAdapterQueryEmitter = StrictEventEmitter<
   EventEmitter,
