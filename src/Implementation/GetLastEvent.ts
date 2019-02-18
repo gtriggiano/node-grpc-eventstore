@@ -1,6 +1,4 @@
 // tslint:disable no-expression-statement no-if-statement
-import * as GRPC from 'grpc'
-
 import {
   makeAvailabilityErrorMessage,
   makeStoredEventMessage,

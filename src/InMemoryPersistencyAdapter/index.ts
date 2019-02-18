@@ -9,9 +9,6 @@ import {
   PersistencyAdapter,
   PersistencyAdapterInsertionEmitter,
   PersistencyAdapterQueryEmitter,
-  ReadStoreForwardRequest,
-  ReadStreamForwardRequest,
-  ReadStreamTypeForwardRequest,
   StoredEvent,
   Stream,
   StreamInsertion,
@@ -140,7 +137,7 @@ export const InMemoryPersistencyAdapter = (
       return emitter
     },
     getAllEvents: () => events.slice(),
-    getEvents: ({ fromEventId, limit }: ReadStoreForwardRequest) => {
+    getEvents: ({ fromEventId, limit }) => {
       const emitter: PersistencyAdapterQueryEmitter = new EventEmitter()
 
       // tslint:disable-next-line:no-expression-statement
@@ -160,11 +157,7 @@ export const InMemoryPersistencyAdapter = (
 
       return emitter
     },
-    getEventsByStream: ({
-      stream,
-      fromSequenceNumber,
-      limit,
-    }: ReadStreamForwardRequest) => {
+    getEventsByStream: ({ stream, fromSequenceNumber, limit }) => {
       const emitter: PersistencyAdapterQueryEmitter = new EventEmitter()
 
       // tslint:disable-next-line:no-expression-statement
@@ -183,11 +176,7 @@ export const InMemoryPersistencyAdapter = (
 
       return emitter
     },
-    getEventsByStreamType: ({
-      streamType,
-      fromEventId,
-      limit,
-    }: ReadStreamTypeForwardRequest) => {
+    getEventsByStreamType: ({ streamType, fromEventId, limit }) => {
       const emitter: PersistencyAdapterQueryEmitter = new EventEmitter()
 
       // tslint:disable-next-line:no-expression-statement
