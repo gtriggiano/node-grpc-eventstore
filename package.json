@@ -1,7 +1,7 @@
 {
   "name": "@gtriggiano/grpc-eventstore",
   "description": "An Event Store with a gRPC interface",
-  "version": "0.0.3",
+  "version": "0.0.4-beta.0",
   "engines": {
     "node": ">=8.0.0"
   },
