@@ -122,8 +122,8 @@ export namespace Event {
 }
 
 export class StoredEvent extends jspb.Message { 
-    getId(): number;
-    setId(value: number): void;
+    getId(): string;
+    setId(value: string): void;
 
 
     hasStream(): boolean;
@@ -162,7 +162,7 @@ export class StoredEvent extends jspb.Message {
 
 export namespace StoredEvent {
     export type AsObject = {
-        id: number,
+        id: string,
         stream?: Stream.AsObject,
         name: string,
         payload: string,
@@ -173,9 +173,33 @@ export namespace StoredEvent {
     }
 }
 
+export class GetLastEventResult extends jspb.Message { 
+
+    hasEvent(): boolean;
+    clearEvent(): void;
+    getEvent(): StoredEvent | undefined;
+    setEvent(value?: StoredEvent): void;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetLastEventResult.AsObject;
+    static toObject(includeInstance: boolean, msg: GetLastEventResult): GetLastEventResult.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetLastEventResult, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetLastEventResult;
+    static deserializeBinaryFromReader(message: GetLastEventResult, reader: jspb.BinaryReader): GetLastEventResult;
+}
+
+export namespace GetLastEventResult {
+    export type AsObject = {
+        event?: StoredEvent.AsObject,
+    }
+}
+
 export class CatchUpWithStoreRequest extends jspb.Message { 
-    getFromEventId(): number;
-    setFromEventId(value: number): void;
+    getFromEventId(): string;
+    setFromEventId(value: string): void;
 
 
     serializeBinary(): Uint8Array;
@@ -190,13 +214,13 @@ export class CatchUpWithStoreRequest extends jspb.Message {
 
 export namespace CatchUpWithStoreRequest {
     export type AsObject = {
-        fromEventId: number,
+        fromEventId: string,
     }
 }
 
 export class ReadStoreForwardRequest extends jspb.Message { 
-    getFromEventId(): number;
-    setFromEventId(value: number): void;
+    getFromEventId(): string;
+    setFromEventId(value: string): void;
 
     getLimit(): number;
     setLimit(value: number): void;
@@ -214,7 +238,7 @@ export class ReadStoreForwardRequest extends jspb.Message {
 
 export namespace ReadStoreForwardRequest {
     export type AsObject = {
-        fromEventId: number,
+        fromEventId: string,
         limit: number,
     }
 }
@@ -334,8 +358,8 @@ export class CatchUpWithStreamTypeRequest extends jspb.Message {
     getStreamType(): StreamType | undefined;
     setStreamType(value?: StreamType): void;
 
-    getFromEventId(): number;
-    setFromEventId(value: number): void;
+    getFromEventId(): string;
+    setFromEventId(value: string): void;
 
 
     serializeBinary(): Uint8Array;
@@ -351,7 +375,7 @@ export class CatchUpWithStreamTypeRequest extends jspb.Message {
 export namespace CatchUpWithStreamTypeRequest {
     export type AsObject = {
         streamType?: StreamType.AsObject,
-        fromEventId: number,
+        fromEventId: string,
     }
 }
 
@@ -362,8 +386,8 @@ export class ReadStreamTypeForwardRequest extends jspb.Message {
     getStreamType(): StreamType | undefined;
     setStreamType(value?: StreamType): void;
 
-    getFromEventId(): number;
-    setFromEventId(value: number): void;
+    getFromEventId(): string;
+    setFromEventId(value: string): void;
 
     getLimit(): number;
     setLimit(value: number): void;
@@ -382,7 +406,7 @@ export class ReadStreamTypeForwardRequest extends jspb.Message {
 export namespace ReadStreamTypeForwardRequest {
     export type AsObject = {
         streamType?: StreamType.AsObject,
-        fromEventId: number,
+        fromEventId: string,
         limit: number,
     }
 }
@@ -418,6 +442,277 @@ export namespace StreamInsertion {
         stream?: Stream.AsObject,
         expectedStreamSize: number,
         eventsList: Array<Event.AsObject>,
+    }
+}
+
+export class AvailabilityError extends jspb.Message { 
+    getName(): string;
+    setName(value: string): void;
+
+    getMessage(): string;
+    setMessage(value: string): void;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AvailabilityError.AsObject;
+    static toObject(includeInstance: boolean, msg: AvailabilityError): AvailabilityError.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AvailabilityError, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AvailabilityError;
+    static deserializeBinaryFromReader(message: AvailabilityError, reader: jspb.BinaryReader): AvailabilityError;
+}
+
+export namespace AvailabilityError {
+    export type AsObject = {
+        name: string,
+        message: string,
+    }
+}
+
+export class JsonPathError extends jspb.Message { 
+    getJsonpath(): string;
+    setJsonpath(value: string): void;
+
+    getMessage(): string;
+    setMessage(value: string): void;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): JsonPathError.AsObject;
+    static toObject(includeInstance: boolean, msg: JsonPathError): JsonPathError.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: JsonPathError, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): JsonPathError;
+    static deserializeBinaryFromReader(message: JsonPathError, reader: jspb.BinaryReader): JsonPathError;
+}
+
+export namespace JsonPathError {
+    export type AsObject = {
+        jsonpath: string,
+        message: string,
+    }
+}
+
+export class InputValidationError extends jspb.Message { 
+    clearErrorsList(): void;
+    getErrorsList(): Array<JsonPathError>;
+    setErrorsList(value: Array<JsonPathError>): void;
+    addErrors(value?: JsonPathError, index?: number): JsonPathError;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): InputValidationError.AsObject;
+    static toObject(includeInstance: boolean, msg: InputValidationError): InputValidationError.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: InputValidationError, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): InputValidationError;
+    static deserializeBinaryFromReader(message: InputValidationError, reader: jspb.BinaryReader): InputValidationError;
+}
+
+export namespace InputValidationError {
+    export type AsObject = {
+        errorsList: Array<JsonPathError.AsObject>,
+    }
+}
+
+export class OverlappingInsertionsError extends jspb.Message { 
+    clearIndexesList(): void;
+    getIndexesList(): Array<number>;
+    setIndexesList(value: Array<number>): void;
+    addIndexes(value: number, index?: number): number;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): OverlappingInsertionsError.AsObject;
+    static toObject(includeInstance: boolean, msg: OverlappingInsertionsError): OverlappingInsertionsError.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: OverlappingInsertionsError, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): OverlappingInsertionsError;
+    static deserializeBinaryFromReader(message: OverlappingInsertionsError, reader: jspb.BinaryReader): OverlappingInsertionsError;
+}
+
+export namespace OverlappingInsertionsError {
+    export type AsObject = {
+        indexesList: Array<number>,
+    }
+}
+
+export class UnwritableStreamsError extends jspb.Message { 
+    clearStreamsList(): void;
+    getStreamsList(): Array<Stream>;
+    setStreamsList(value: Array<Stream>): void;
+    addStreams(value?: Stream, index?: number): Stream;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): UnwritableStreamsError.AsObject;
+    static toObject(includeInstance: boolean, msg: UnwritableStreamsError): UnwritableStreamsError.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: UnwritableStreamsError, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): UnwritableStreamsError;
+    static deserializeBinaryFromReader(message: UnwritableStreamsError, reader: jspb.BinaryReader): UnwritableStreamsError;
+}
+
+export namespace UnwritableStreamsError {
+    export type AsObject = {
+        streamsList: Array<Stream.AsObject>,
+    }
+}
+
+export class ConcurrencyIssue extends jspb.Message { 
+    getType(): string;
+    setType(value: string): void;
+
+
+    hasStream(): boolean;
+    clearStream(): void;
+    getStream(): Stream | undefined;
+    setStream(value?: Stream): void;
+
+    getExpectedStreamSize(): number;
+    setExpectedStreamSize(value: number): void;
+
+    getCurrentStreamSize(): number;
+    setCurrentStreamSize(value: number): void;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ConcurrencyIssue.AsObject;
+    static toObject(includeInstance: boolean, msg: ConcurrencyIssue): ConcurrencyIssue.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: ConcurrencyIssue, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ConcurrencyIssue;
+    static deserializeBinaryFromReader(message: ConcurrencyIssue, reader: jspb.BinaryReader): ConcurrencyIssue;
+}
+
+export namespace ConcurrencyIssue {
+    export type AsObject = {
+        type: string,
+        stream?: Stream.AsObject,
+        expectedStreamSize: number,
+        currentStreamSize: number,
+    }
+}
+
+export class ConcurrencyError extends jspb.Message { 
+    clearConcurrencyIssuesList(): void;
+    getConcurrencyIssuesList(): Array<ConcurrencyIssue>;
+    setConcurrencyIssuesList(value: Array<ConcurrencyIssue>): void;
+    addConcurrencyIssues(value?: ConcurrencyIssue, index?: number): ConcurrencyIssue;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ConcurrencyError.AsObject;
+    static toObject(includeInstance: boolean, msg: ConcurrencyError): ConcurrencyError.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: ConcurrencyError, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ConcurrencyError;
+    static deserializeBinaryFromReader(message: ConcurrencyError, reader: jspb.BinaryReader): ConcurrencyError;
+}
+
+export namespace ConcurrencyError {
+    export type AsObject = {
+        concurrencyIssuesList: Array<ConcurrencyIssue.AsObject>,
+    }
+}
+
+export class AppendOperationError extends jspb.Message { 
+
+    hasAvailabilityError(): boolean;
+    clearAvailabilityError(): void;
+    getAvailabilityError(): AvailabilityError | undefined;
+    setAvailabilityError(value?: AvailabilityError): void;
+
+
+    hasInputValidationError(): boolean;
+    clearInputValidationError(): void;
+    getInputValidationError(): InputValidationError | undefined;
+    setInputValidationError(value?: InputValidationError): void;
+
+
+    hasOverlappingInsertionsError(): boolean;
+    clearOverlappingInsertionsError(): void;
+    getOverlappingInsertionsError(): OverlappingInsertionsError | undefined;
+    setOverlappingInsertionsError(value?: OverlappingInsertionsError): void;
+
+
+    hasUnwritableStreamsError(): boolean;
+    clearUnwritableStreamsError(): void;
+    getUnwritableStreamsError(): UnwritableStreamsError | undefined;
+    setUnwritableStreamsError(value?: UnwritableStreamsError): void;
+
+
+    hasConcurrencyError(): boolean;
+    clearConcurrencyError(): void;
+    getConcurrencyError(): ConcurrencyError | undefined;
+    setConcurrencyError(value?: ConcurrencyError): void;
+
+
+    getTypeCase(): AppendOperationError.TypeCase;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AppendOperationError.AsObject;
+    static toObject(includeInstance: boolean, msg: AppendOperationError): AppendOperationError.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AppendOperationError, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AppendOperationError;
+    static deserializeBinaryFromReader(message: AppendOperationError, reader: jspb.BinaryReader): AppendOperationError;
+}
+
+export namespace AppendOperationError {
+    export type AsObject = {
+        availabilityError?: AvailabilityError.AsObject,
+        inputValidationError?: InputValidationError.AsObject,
+        overlappingInsertionsError?: OverlappingInsertionsError.AsObject,
+        unwritableStreamsError?: UnwritableStreamsError.AsObject,
+        concurrencyError?: ConcurrencyError.AsObject,
+    }
+
+    export enum TypeCase {
+        TYPE_NOT_SET = 0,
+    
+    AVAILABILITY_ERROR = 1,
+
+    INPUT_VALIDATION_ERROR = 2,
+
+    OVERLAPPING_INSERTIONS_ERROR = 3,
+
+    UNWRITABLE_STREAMS_ERROR = 4,
+
+    CONCURRENCY_ERROR = 5,
+
+    }
+
+}
+
+export class StoredEventsList extends jspb.Message { 
+    clearStoredEventsList(): void;
+    getStoredEventsList(): Array<StoredEvent>;
+    setStoredEventsList(value: Array<StoredEvent>): void;
+    addStoredEvents(value?: StoredEvent, index?: number): StoredEvent;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): StoredEventsList.AsObject;
+    static toObject(includeInstance: boolean, msg: StoredEventsList): StoredEventsList.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: StoredEventsList, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): StoredEventsList;
+    static deserializeBinaryFromReader(message: StoredEventsList, reader: jspb.BinaryReader): StoredEventsList;
+}
+
+export namespace StoredEventsList {
+    export type AsObject = {
+        storedEventsList: Array<StoredEvent.AsObject>,
     }
 }
 
@@ -476,25 +771,45 @@ export namespace AppendEventsToMultipleStreamsRequest {
     }
 }
 
-export class StoredEventsList extends jspb.Message { 
-    clearEventsList(): void;
-    getEventsList(): Array<StoredEvent>;
-    setEventsList(value: Array<StoredEvent>): void;
-    addEvents(value?: StoredEvent, index?: number): StoredEvent;
+export class AppendOperationResult extends jspb.Message { 
 
+    hasSuccess(): boolean;
+    clearSuccess(): void;
+    getSuccess(): StoredEventsList | undefined;
+    setSuccess(value?: StoredEventsList): void;
+
+
+    hasError(): boolean;
+    clearError(): void;
+    getError(): AppendOperationError | undefined;
+    setError(value?: AppendOperationError): void;
+
+
+    getResultCase(): AppendOperationResult.ResultCase;
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): StoredEventsList.AsObject;
-    static toObject(includeInstance: boolean, msg: StoredEventsList): StoredEventsList.AsObject;
+    toObject(includeInstance?: boolean): AppendOperationResult.AsObject;
+    static toObject(includeInstance: boolean, msg: AppendOperationResult): AppendOperationResult.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: StoredEventsList, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): StoredEventsList;
-    static deserializeBinaryFromReader(message: StoredEventsList, reader: jspb.BinaryReader): StoredEventsList;
+    static serializeBinaryToWriter(message: AppendOperationResult, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AppendOperationResult;
+    static deserializeBinaryFromReader(message: AppendOperationResult, reader: jspb.BinaryReader): AppendOperationResult;
 }
 
-export namespace StoredEventsList {
+export namespace AppendOperationResult {
     export type AsObject = {
-        eventsList: Array<StoredEvent.AsObject>,
+        success?: StoredEventsList.AsObject,
+        error?: AppendOperationError.AsObject,
     }
+
+    export enum ResultCase {
+        RESULT_NOT_SET = 0,
+    
+    SUCCESS = 1,
+
+    ERROR = 2,
+
+    }
+
 }

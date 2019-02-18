@@ -1,10 +1,15 @@
 import EventEmitter from 'eventemitter3'
-import { flatten } from 'lodash'
+// tslint:disable-next-line:no-submodule-imports
+import { right } from 'fp-ts/lib/Either'
+import { flatten, last } from 'lodash'
 
 import { zeropad } from '../helpers/zeropad'
 import {
   DatabaseAdapter,
-  DbStoredEvent,
+  DatabaseAdapterInsertionEmitter,
+  DatabaseAdapterQueryEmitter,
+  DatabaseStoredEvent,
+  InsertionConcurrencyFailure,
   ReadStoreForwardRequest,
   ReadStreamForwardRequest,
   ReadStreamTypeForwardRequest,
@@ -20,25 +25,19 @@ interface EventToStore {
   readonly stream: Stream
 }
 
-interface InsertionConcurrencyFailure {
-  readonly message: 'STREAM_DOES_NOT_EXIST' | 'EXPECTED_STREAM_SIZE_MISMATCH'
-  readonly stream: Stream
-  readonly actualStreamSize: number
-  readonly expectedStreamSize: number
-}
-
 const padId = (id: string | number) => zeropad(`${id}`, 25)
 
-export const InMemoryDatabaseAdapter = (
-  initialEvents: ReadonlyArray<DbStoredEvent> = []
-): DatabaseAdapter &
-  EventEmitter & {
-    readonly getAllEvents: () => ReadonlyArray<DbStoredEvent>
-  } => {
-  const dbAdapter = new EventEmitter()
+interface InMemoryDatabaseAdapterMethods extends DatabaseAdapter {
+  readonly getAllEvents: () => ReadonlyArray<DatabaseStoredEvent>
+}
 
+type InMemoryDatabaseAdapter = InMemoryDatabaseAdapterMethods & EventEmitter
+
+export const InMemoryDatabaseAdapter = (
+  initialEvents: ReadonlyArray<DatabaseStoredEvent> = []
+): InMemoryDatabaseAdapter => {
   // tslint:disable-next-line:readonly-array
-  const events: DbStoredEvent[] = initialEvents.slice()
+  const events: DatabaseStoredEvent[] = initialEvents.slice()
 
   const getEventsOfStream = (stream: Stream) =>
     events.filter(
@@ -59,161 +58,156 @@ export const InMemoryDatabaseAdapter = (
 
   const processInsertion = (
     insertion: StreamInsertion,
-    actualStreamSize: number
+    currentStreamSize: number
   ): ReadonlyArray<EventToStore> | InsertionConcurrencyFailure => {
-    const { stream, events: eventsToStore, expectedStreamSize } = insertion
+    const { stream, eventsList, expectedStreamSize } = insertion
 
     // tslint:disable-next-line:no-if-statement
     if (expectedStreamSize !== -2) {
       // tslint:disable-next-line:no-if-statement
-      if (expectedStreamSize === -1 && !actualStreamSize) {
+      if (expectedStreamSize === -1 && !currentStreamSize) {
         return {
-          actualStreamSize,
+          currentStreamSize,
           expectedStreamSize,
-          message: 'STREAM_DOES_NOT_EXIST',
           stream,
+          type: 'STREAM_DOES_NOT_EXIST',
         }
       }
       // tslint:disable-next-line:no-if-statement
-      if (expectedStreamSize !== actualStreamSize) {
+      if (expectedStreamSize !== currentStreamSize) {
         return {
-          actualStreamSize,
+          currentStreamSize,
           expectedStreamSize,
-          message: 'EXPECTED_STREAM_SIZE_MISMATCH',
           stream,
+          type: 'EXPECTED_STREAM_SIZE_MISMATCH',
         }
       }
     }
 
-    return eventsToStore.map(({ name, payload }, idx) => ({
+    return eventsList.map(({ name, payload }, idx) => ({
       name,
       payload,
-      sequenceNumber: actualStreamSize + idx + 1,
+      sequenceNumber: currentStreamSize + idx + 1,
       stream,
     }))
   }
 
-  const getAllEvents = () => events.slice()
-  const appendEvents = (
-    insertions: ReadonlyArray<StreamInsertion>,
-    transactionId: string,
-    correlationId: string
-  ) => {
-    const dbResults: EventEmitter<
-      'stored-events' | 'update' | 'error'
-    > = new EventEmitter()
+  const adapter: InMemoryDatabaseAdapter = Object.assign<
+    EventEmitter,
+    InMemoryDatabaseAdapterMethods
+  >(new EventEmitter(), {
+    appendInsertions: (insertions, transactionId, correlationId) => {
+      const emitter: DatabaseAdapterInsertionEmitter = new EventEmitter()
 
-    // tslint:disable no-expression-statement no-if-statement no-object-mutation
-    process.nextTick(() => {
-      const processedInsertions = insertions.map(insertion =>
-        processInsertion(insertion, getStreamSize(insertion.stream))
-      )
-      const failures = processedInsertions.filter<InsertionConcurrencyFailure>(
-        (x: any): x is InsertionConcurrencyFailure => !Array.isArray(x)
-      )
+      // tslint:disable no-expression-statement no-if-statement no-object-mutation
+      process.nextTick(() => {
+        const processedInsertions = insertions.map(insertion =>
+          processInsertion(insertion, getStreamSize(insertion.stream))
+        )
+        const failures = processedInsertions.filter<
+          InsertionConcurrencyFailure
+        >((x: any): x is InsertionConcurrencyFailure => !Array.isArray(x))
 
-      if (failures.length) {
-        const error = new Error('CONCURRENCY')
-        error.name = 'CONCURRENCY'
-        ;(error as any).failures = failures
+        if (failures.length) {
+          emitter.emit('error', {
+            failures,
+            type: 'CONCURRENCY',
+          })
+        } else {
+          const now = new Date().toISOString()
+          const totalEvents = events.length
+          const eventsToAppend: ReadonlyArray<DatabaseStoredEvent> = flatten(
+            (processedInsertions as unknown) as ReadonlyArray<
+              ReadonlyArray<EventToStore>
+            >
+          ).map((event, idx) => ({
+            ...event,
+            correlationId,
+            id: `${totalEvents + 1 + idx}`,
+            storedOn: now,
+            transactionId,
+          }))
 
-        dbResults.emit('error', error)
-      } else {
-        const now = new Date().toISOString()
-        const totalEvents = events.length
-        const eventsToAppend: ReadonlyArray<DbStoredEvent> = flatten(
-          (processedInsertions as unknown) as ReadonlyArray<EventToStore>
-        ).map((event, idx) => ({
-          ...event,
-          correlationId,
-          id: `${totalEvents + 1 + idx}`,
-          storedOn: now,
-          transactionId,
-        }))
+          events.push(...eventsToAppend)
 
-        events.push(...eventsToAppend)
-
-        dbResults.emit('stored-events', eventsToAppend)
-        dbAdapter.emit('update')
-      }
-    })
-    // tslint:enable
-
-    return dbResults
-  }
-  const getEvents = ({ fromEventId, limit }: ReadStoreForwardRequest) => {
-    const dbResults: EventEmitter<'event' | 'end'> = new EventEmitter()
-
-    // tslint:disable-next-line:no-expression-statement
-    process.nextTick(() => {
-      const paddedFromEventId = padId(fromEventId)
-      const foundEvents = events
-        .filter(({ id }) => padId(id) > paddedFromEventId)
-        .slice(0, limit && limit > 0 ? limit : undefined)
-
-      // tslint:disable no-expression-statement
-      foundEvents.forEach(event => {
-        dbResults.emit('event', event)
+          emitter.emit('stored-events', eventsToAppend)
+          emitter.emit('update')
+        }
       })
-      dbResults.emit('end')
       // tslint:enable
-    })
 
-    return dbResults
-  }
-  const getEventsByStream = ({
-    stream,
-    fromSequenceNumber,
-    limit,
-  }: ReadStreamForwardRequest) => {
-    const dbResults: EventEmitter<'event' | 'end'> = new EventEmitter()
+      return emitter
+    },
+    getAllEvents: () => events.slice(),
+    getEvents: ({ fromEventId, limit }: ReadStoreForwardRequest) => {
+      const emitter: DatabaseAdapterQueryEmitter = new EventEmitter()
 
-    // tslint:disable-next-line:no-expression-statement
-    process.nextTick(() => {
-      const foundEvents = getEventsOfStream(stream)
-        .filter(({ sequenceNumber }) => sequenceNumber > fromSequenceNumber)
-        .slice(0, limit && limit > 0 ? limit : undefined)
+      // tslint:disable-next-line:no-expression-statement
+      process.nextTick(() => {
+        const paddedFromEventId = padId(fromEventId)
+        const foundEvents = events
+          .filter(({ id }) => padId(id) > paddedFromEventId)
+          .slice(0, limit && limit > 0 ? limit : undefined)
 
-      // tslint:disable no-expression-statement
-      foundEvents.forEach(event => {
-        dbResults.emit('event', event)
+        // tslint:disable no-expression-statement
+        foundEvents.forEach(event => {
+          emitter.emit('event', event)
+        })
+        emitter.emit('end')
+        // tslint:enable
       })
-      dbResults.emit('end')
-      // tslint:enable
-    })
 
-    return dbResults
-  }
-  const getEventsByStreamType = ({
-    streamType,
-    fromEventId,
-    limit,
-  }: ReadStreamTypeForwardRequest) => {
-    const dbResults: EventEmitter<'event' | 'end'> = new EventEmitter()
+      return emitter
+    },
+    getEventsByStream: ({
+      stream,
+      fromSequenceNumber,
+      limit,
+    }: ReadStreamForwardRequest) => {
+      const emitter: DatabaseAdapterQueryEmitter = new EventEmitter()
 
-    // tslint:disable-next-line:no-expression-statement
-    process.nextTick(() => {
-      const paddedFromEventId = padId(fromEventId)
-      const foundEvents = getEventsOfStreamType(streamType)
-        .filter(({ id }) => padId(id) > paddedFromEventId)
-        .slice(0, limit && limit > 0 ? limit : undefined)
+      // tslint:disable-next-line:no-expression-statement
+      process.nextTick(() => {
+        const foundEvents = getEventsOfStream(stream)
+          .filter(({ sequenceNumber }) => sequenceNumber > fromSequenceNumber)
+          .slice(0, limit && limit > 0 ? limit : undefined)
 
-      // tslint:disable no-expression-statement
-      foundEvents.forEach(event => {
-        dbResults.emit('event', event)
+        // tslint:disable no-expression-statement
+        foundEvents.forEach(event => {
+          emitter.emit('event', event)
+        })
+        emitter.emit('end')
+        // tslint:enable
       })
-      dbResults.emit('end')
-      // tslint:enable
-    })
 
-    return dbResults
-  }
+      return emitter
+    },
+    getEventsByStreamType: ({
+      streamType,
+      fromEventId,
+      limit,
+    }: ReadStreamTypeForwardRequest) => {
+      const emitter: DatabaseAdapterQueryEmitter = new EventEmitter()
 
-  return Object.assign(dbAdapter, {
-    appendEvents,
-    getAllEvents,
-    getEvents,
-    getEventsByStream,
-    getEventsByStreamType,
+      // tslint:disable-next-line:no-expression-statement
+      process.nextTick(() => {
+        const paddedFromEventId = padId(fromEventId)
+        const foundEvents = getEventsOfStreamType(streamType)
+          .filter(({ id }) => padId(id) > paddedFromEventId)
+          .slice(0, limit && limit > 0 ? limit : undefined)
+
+        // tslint:disable no-expression-statement
+        foundEvents.forEach(event => {
+          emitter.emit('event', event)
+        })
+        emitter.emit('end')
+        // tslint:enable
+      })
+
+      return emitter
+    },
+    getLastStoredEvent: async () => right(last(events)),
   })
+
+  return adapter
 }

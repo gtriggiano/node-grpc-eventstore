@@ -26,6 +26,17 @@ function deserialize_grpceventstore_AppendEventsToStreamRequest(buffer_arg) {
   return EventStore_pb.AppendEventsToStreamRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
+function serialize_grpceventstore_AppendOperationResult(arg) {
+  if (!(arg instanceof EventStore_pb.AppendOperationResult)) {
+    throw new Error('Expected argument of type grpceventstore.AppendOperationResult');
+  }
+  return new Buffer(arg.serializeBinary());
+}
+
+function deserialize_grpceventstore_AppendOperationResult(buffer_arg) {
+  return EventStore_pb.AppendOperationResult.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
 function serialize_grpceventstore_CatchUpWithStoreRequest(arg) {
   if (!(arg instanceof EventStore_pb.CatchUpWithStoreRequest)) {
     throw new Error('Expected argument of type grpceventstore.CatchUpWithStoreRequest');
@@ -68,6 +79,17 @@ function serialize_grpceventstore_Empty(arg) {
 
 function deserialize_grpceventstore_Empty(buffer_arg) {
   return EventStore_pb.Empty.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_grpceventstore_GetLastEventResult(arg) {
+  if (!(arg instanceof EventStore_pb.GetLastEventResult)) {
+    throw new Error('Expected argument of type grpceventstore.GetLastEventResult');
+  }
+  return new Buffer(arg.serializeBinary());
+}
+
+function deserialize_grpceventstore_GetLastEventResult(buffer_arg) {
+  return EventStore_pb.GetLastEventResult.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_grpceventstore_HeartbeatRequest(arg) {
@@ -125,17 +147,6 @@ function deserialize_grpceventstore_StoredEvent(buffer_arg) {
   return EventStore_pb.StoredEvent.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_grpceventstore_StoredEventsList(arg) {
-  if (!(arg instanceof EventStore_pb.StoredEventsList)) {
-    throw new Error('Expected argument of type grpceventstore.StoredEventsList');
-  }
-  return new Buffer(arg.serializeBinary());
-}
-
-function deserialize_grpceventstore_StoredEventsList(buffer_arg) {
-  return EventStore_pb.StoredEventsList.deserializeBinary(new Uint8Array(buffer_arg));
-}
-
 function serialize_grpceventstore_SubscribeToStreamRequest(arg) {
   if (!(arg instanceof EventStore_pb.SubscribeToStreamRequest)) {
     throw new Error('Expected argument of type grpceventstore.SubscribeToStreamRequest');
@@ -160,7 +171,8 @@ function deserialize_grpceventstore_SubscribeToStreamTypeRequest(buffer_arg) {
 
 
 var EventStoreService = exports.EventStoreService = {
-  // Ping
+  //
+  // Return an empty object
   ping: {
     path: '/grpceventstore.EventStore/Ping',
     requestStream: false,
@@ -172,6 +184,7 @@ var EventStoreService = exports.EventStoreService = {
     responseSerialize: serialize_grpceventstore_Empty,
     responseDeserialize: deserialize_grpceventstore_Empty,
   },
+  //
   // Returns a live stream of empty objects, emitted at intervals
   heartbeat: {
     path: '/grpceventstore.EventStore/Heartbeat',
@@ -184,9 +197,19 @@ var EventStoreService = exports.EventStoreService = {
     responseSerialize: serialize_grpceventstore_Empty,
     responseDeserialize: deserialize_grpceventstore_Empty,
   },
-  // ///////////////////////////////
-  // QUERIES TO THE ENTIRE STORE //
-  // ///////////////////////////////
+  //
+  // Returns the last stored event
+  getLastEvent: {
+    path: '/grpceventstore.EventStore/GetLastEvent',
+    requestStream: false,
+    responseStream: false,
+    requestType: EventStore_pb.Empty,
+    responseType: EventStore_pb.GetLastEventResult,
+    requestSerialize: serialize_grpceventstore_Empty,
+    requestDeserialize: deserialize_grpceventstore_Empty,
+    responseSerialize: serialize_grpceventstore_GetLastEventResult,
+    responseDeserialize: deserialize_grpceventstore_GetLastEventResult,
+  },
   //
   // Returns a live stream of events emitted as soon as they are stored.
   subscribeToStore: {
@@ -200,6 +223,7 @@ var EventStoreService = exports.EventStoreService = {
     responseSerialize: serialize_grpceventstore_StoredEvent,
     responseDeserialize: deserialize_grpceventstore_StoredEvent,
   },
+  //
   // Returns a live stream of all the events stored after a certain one.
   // The server implementation should transparently switch to live events as soon as the old ones are sent.
   catchUpWithStore: {
@@ -213,6 +237,7 @@ var EventStoreService = exports.EventStoreService = {
     responseSerialize: serialize_grpceventstore_StoredEvent,
     responseDeserialize: deserialize_grpceventstore_StoredEvent,
   },
+  //
   // Returns an ending stream of events stored after a certain one, up to the moment of request.
   // Clients can specify a `limit` to receive just N events.
   readStoreForward: {
@@ -226,11 +251,8 @@ var EventStoreService = exports.EventStoreService = {
     responseSerialize: serialize_grpceventstore_StoredEvent,
     responseDeserialize: deserialize_grpceventstore_StoredEvent,
   },
-  // ///////////////////////
-  // QUERIES TO A STREAM //
-  // ///////////////////////
   //
-  // Returns a live stream of events belonging to the same... stream, emitted as soon as they are stored.
+  // Returns a live stream of events belonging to the same stream, emitted as soon as they are stored.
   subscribeToStream: {
     path: '/grpceventstore.EventStore/SubscribeToStream',
     requestStream: true,
@@ -242,6 +264,7 @@ var EventStoreService = exports.EventStoreService = {
     responseSerialize: serialize_grpceventstore_StoredEvent,
     responseDeserialize: deserialize_grpceventstore_StoredEvent,
   },
+  //
   // Returns a live stream of all events belonging to the same stream and having a version number > than the provided one.
   // The server implementation should transparently switch to live events as soon as the old ones are sent.
   catchUpWithStream: {
@@ -255,6 +278,7 @@ var EventStoreService = exports.EventStoreService = {
     responseSerialize: serialize_grpceventstore_StoredEvent,
     responseDeserialize: deserialize_grpceventstore_StoredEvent,
   },
+  //
   // Returns an ending stream of all the events belonging to the same stream, having a version number > than the provided one and stored before the time of request.
   // Clients can specify a `limit` to receive just N events.
   readStreamForward: {
@@ -268,9 +292,6 @@ var EventStoreService = exports.EventStoreService = {
     responseSerialize: serialize_grpceventstore_StoredEvent,
     responseDeserialize: deserialize_grpceventstore_StoredEvent,
   },
-  // /////////////////////////////////
-  // QUERIES TO A TYPE OF STREAMS  //
-  // /////////////////////////////////
   //
   // Returns a live stream of multiplexed events belonging to streams having the same type, emitted as soon as they are stored.
   subscribeToStreamType: {
@@ -284,6 +305,7 @@ var EventStoreService = exports.EventStoreService = {
     responseSerialize: serialize_grpceventstore_StoredEvent,
     responseDeserialize: deserialize_grpceventstore_StoredEvent,
   },
+  //
   // Returns a live stream of multiplexed events belonging to streams having the same type stored after a given event.
   // The server implementation should transparently switch to live events as soon as the old ones are sent.
   catchUpWithStreamType: {
@@ -297,6 +319,7 @@ var EventStoreService = exports.EventStoreService = {
     responseSerialize: serialize_grpceventstore_StoredEvent,
     responseDeserialize: deserialize_grpceventstore_StoredEvent,
   },
+  //
   // Returns an ending stream of multiplexed events belonging to streams having the same type, stored after a given event and before the time of request.
   // Clients can specify a `limit` to receive just N events.
   readStreamTypeForward: {
@@ -310,33 +333,31 @@ var EventStoreService = exports.EventStoreService = {
     responseSerialize: serialize_grpceventstore_StoredEvent,
     responseDeserialize: deserialize_grpceventstore_StoredEvent,
   },
-  // ////////////////////
-  // WRITE PROCEDURES //
-  // ////////////////////
   //
-  // Attempts to append a list of events belonging to a stream
+  // Appends a list of events to a stream
   appendEventsToStream: {
     path: '/grpceventstore.EventStore/AppendEventsToStream',
     requestStream: false,
     responseStream: false,
     requestType: EventStore_pb.AppendEventsToStreamRequest,
-    responseType: EventStore_pb.StoredEventsList,
+    responseType: EventStore_pb.AppendOperationResult,
     requestSerialize: serialize_grpceventstore_AppendEventsToStreamRequest,
     requestDeserialize: deserialize_grpceventstore_AppendEventsToStreamRequest,
-    responseSerialize: serialize_grpceventstore_StoredEventsList,
-    responseDeserialize: deserialize_grpceventstore_StoredEventsList,
+    responseSerialize: serialize_grpceventstore_AppendOperationResult,
+    responseDeserialize: deserialize_grpceventstore_AppendOperationResult,
   },
-  // Attempts to append N list of events belonging to N streams
+  //
+  // Append N lists of events to N streams
   appendEventsToMultipleStreams: {
     path: '/grpceventstore.EventStore/AppendEventsToMultipleStreams',
     requestStream: false,
     responseStream: false,
     requestType: EventStore_pb.AppendEventsToMultipleStreamsRequest,
-    responseType: EventStore_pb.StoredEventsList,
+    responseType: EventStore_pb.AppendOperationResult,
     requestSerialize: serialize_grpceventstore_AppendEventsToMultipleStreamsRequest,
     requestDeserialize: deserialize_grpceventstore_AppendEventsToMultipleStreamsRequest,
-    responseSerialize: serialize_grpceventstore_StoredEventsList,
-    responseDeserialize: deserialize_grpceventstore_StoredEventsList,
+    responseSerialize: serialize_grpceventstore_AppendOperationResult,
+    responseDeserialize: deserialize_grpceventstore_AppendOperationResult,
   },
 };
 

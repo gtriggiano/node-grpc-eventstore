@@ -9,6 +9,7 @@ import * as EventStore_pb from "./EventStore_pb";
 interface IEventStoreService extends grpc.ServiceDefinition<grpc.UntypedServiceImplementation> {
     ping: IEventStoreService_IPing;
     heartbeat: IEventStoreService_IHeartbeat;
+    getLastEvent: IEventStoreService_IGetLastEvent;
     subscribeToStore: IEventStoreService_ISubscribeToStore;
     catchUpWithStore: IEventStoreService_ICatchUpWithStore;
     readStoreForward: IEventStoreService_IReadStoreForward;
@@ -39,6 +40,15 @@ interface IEventStoreService_IHeartbeat extends grpc.MethodDefinition<EventStore
     requestDeserialize: grpc.deserialize<EventStore_pb.HeartbeatRequest>;
     responseSerialize: grpc.serialize<EventStore_pb.Empty>;
     responseDeserialize: grpc.deserialize<EventStore_pb.Empty>;
+}
+interface IEventStoreService_IGetLastEvent extends grpc.MethodDefinition<EventStore_pb.Empty, EventStore_pb.GetLastEventResult> {
+    path: string; // "/grpceventstore.EventStore/GetLastEvent"
+    requestStream: boolean; // false
+    responseStream: boolean; // false
+    requestSerialize: grpc.serialize<EventStore_pb.Empty>;
+    requestDeserialize: grpc.deserialize<EventStore_pb.Empty>;
+    responseSerialize: grpc.serialize<EventStore_pb.GetLastEventResult>;
+    responseDeserialize: grpc.deserialize<EventStore_pb.GetLastEventResult>;
 }
 interface IEventStoreService_ISubscribeToStore extends grpc.MethodDefinition<EventStore_pb.Empty, EventStore_pb.StoredEvent> {
     path: string; // "/grpceventstore.EventStore/SubscribeToStore"
@@ -121,23 +131,23 @@ interface IEventStoreService_IReadStreamTypeForward extends grpc.MethodDefinitio
     responseSerialize: grpc.serialize<EventStore_pb.StoredEvent>;
     responseDeserialize: grpc.deserialize<EventStore_pb.StoredEvent>;
 }
-interface IEventStoreService_IAppendEventsToStream extends grpc.MethodDefinition<EventStore_pb.AppendEventsToStreamRequest, EventStore_pb.StoredEventsList> {
+interface IEventStoreService_IAppendEventsToStream extends grpc.MethodDefinition<EventStore_pb.AppendEventsToStreamRequest, EventStore_pb.AppendOperationResult> {
     path: string; // "/grpceventstore.EventStore/AppendEventsToStream"
     requestStream: boolean; // false
     responseStream: boolean; // false
     requestSerialize: grpc.serialize<EventStore_pb.AppendEventsToStreamRequest>;
     requestDeserialize: grpc.deserialize<EventStore_pb.AppendEventsToStreamRequest>;
-    responseSerialize: grpc.serialize<EventStore_pb.StoredEventsList>;
-    responseDeserialize: grpc.deserialize<EventStore_pb.StoredEventsList>;
+    responseSerialize: grpc.serialize<EventStore_pb.AppendOperationResult>;
+    responseDeserialize: grpc.deserialize<EventStore_pb.AppendOperationResult>;
 }
-interface IEventStoreService_IAppendEventsToMultipleStreams extends grpc.MethodDefinition<EventStore_pb.AppendEventsToMultipleStreamsRequest, EventStore_pb.StoredEventsList> {
+interface IEventStoreService_IAppendEventsToMultipleStreams extends grpc.MethodDefinition<EventStore_pb.AppendEventsToMultipleStreamsRequest, EventStore_pb.AppendOperationResult> {
     path: string; // "/grpceventstore.EventStore/AppendEventsToMultipleStreams"
     requestStream: boolean; // false
     responseStream: boolean; // false
     requestSerialize: grpc.serialize<EventStore_pb.AppendEventsToMultipleStreamsRequest>;
     requestDeserialize: grpc.deserialize<EventStore_pb.AppendEventsToMultipleStreamsRequest>;
-    responseSerialize: grpc.serialize<EventStore_pb.StoredEventsList>;
-    responseDeserialize: grpc.deserialize<EventStore_pb.StoredEventsList>;
+    responseSerialize: grpc.serialize<EventStore_pb.AppendOperationResult>;
+    responseDeserialize: grpc.deserialize<EventStore_pb.AppendOperationResult>;
 }
 
 export const EventStoreService: IEventStoreService;
@@ -145,6 +155,7 @@ export const EventStoreService: IEventStoreService;
 export interface IEventStoreServer {
     ping: grpc.handleUnaryCall<EventStore_pb.Empty, EventStore_pb.Empty>;
     heartbeat: grpc.handleBidiStreamingCall<EventStore_pb.HeartbeatRequest, EventStore_pb.Empty>;
+    getLastEvent: grpc.handleUnaryCall<EventStore_pb.Empty, EventStore_pb.GetLastEventResult>;
     subscribeToStore: grpc.handleBidiStreamingCall<EventStore_pb.Empty, EventStore_pb.StoredEvent>;
     catchUpWithStore: grpc.handleBidiStreamingCall<EventStore_pb.CatchUpWithStoreRequest, EventStore_pb.StoredEvent>;
     readStoreForward: grpc.handleServerStreamingCall<EventStore_pb.ReadStoreForwardRequest, EventStore_pb.StoredEvent>;
@@ -154,8 +165,8 @@ export interface IEventStoreServer {
     subscribeToStreamType: grpc.handleBidiStreamingCall<EventStore_pb.SubscribeToStreamTypeRequest, EventStore_pb.StoredEvent>;
     catchUpWithStreamType: grpc.handleBidiStreamingCall<EventStore_pb.CatchUpWithStreamTypeRequest, EventStore_pb.StoredEvent>;
     readStreamTypeForward: grpc.handleServerStreamingCall<EventStore_pb.ReadStreamTypeForwardRequest, EventStore_pb.StoredEvent>;
-    appendEventsToStream: grpc.handleUnaryCall<EventStore_pb.AppendEventsToStreamRequest, EventStore_pb.StoredEventsList>;
-    appendEventsToMultipleStreams: grpc.handleUnaryCall<EventStore_pb.AppendEventsToMultipleStreamsRequest, EventStore_pb.StoredEventsList>;
+    appendEventsToStream: grpc.handleUnaryCall<EventStore_pb.AppendEventsToStreamRequest, EventStore_pb.AppendOperationResult>;
+    appendEventsToMultipleStreams: grpc.handleUnaryCall<EventStore_pb.AppendEventsToMultipleStreamsRequest, EventStore_pb.AppendOperationResult>;
 }
 
 export interface IEventStoreClient {
@@ -165,6 +176,9 @@ export interface IEventStoreClient {
     heartbeat(): grpc.ClientDuplexStream<EventStore_pb.HeartbeatRequest, EventStore_pb.Empty>;
     heartbeat(options: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<EventStore_pb.HeartbeatRequest, EventStore_pb.Empty>;
     heartbeat(metadata: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<EventStore_pb.HeartbeatRequest, EventStore_pb.Empty>;
+    getLastEvent(request: EventStore_pb.Empty, callback: (error: grpc.ServiceError | null, response: EventStore_pb.GetLastEventResult) => void): grpc.ClientUnaryCall;
+    getLastEvent(request: EventStore_pb.Empty, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: EventStore_pb.GetLastEventResult) => void): grpc.ClientUnaryCall;
+    getLastEvent(request: EventStore_pb.Empty, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: EventStore_pb.GetLastEventResult) => void): grpc.ClientUnaryCall;
     subscribeToStore(): grpc.ClientDuplexStream<EventStore_pb.Empty, EventStore_pb.StoredEvent>;
     subscribeToStore(options: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<EventStore_pb.Empty, EventStore_pb.StoredEvent>;
     subscribeToStore(metadata: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<EventStore_pb.Empty, EventStore_pb.StoredEvent>;
@@ -189,12 +203,12 @@ export interface IEventStoreClient {
     catchUpWithStreamType(metadata: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<EventStore_pb.CatchUpWithStreamTypeRequest, EventStore_pb.StoredEvent>;
     readStreamTypeForward(request: EventStore_pb.ReadStreamTypeForwardRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<EventStore_pb.StoredEvent>;
     readStreamTypeForward(request: EventStore_pb.ReadStreamTypeForwardRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<EventStore_pb.StoredEvent>;
-    appendEventsToStream(request: EventStore_pb.AppendEventsToStreamRequest, callback: (error: grpc.ServiceError | null, response: EventStore_pb.StoredEventsList) => void): grpc.ClientUnaryCall;
-    appendEventsToStream(request: EventStore_pb.AppendEventsToStreamRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: EventStore_pb.StoredEventsList) => void): grpc.ClientUnaryCall;
-    appendEventsToStream(request: EventStore_pb.AppendEventsToStreamRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: EventStore_pb.StoredEventsList) => void): grpc.ClientUnaryCall;
-    appendEventsToMultipleStreams(request: EventStore_pb.AppendEventsToMultipleStreamsRequest, callback: (error: grpc.ServiceError | null, response: EventStore_pb.StoredEventsList) => void): grpc.ClientUnaryCall;
-    appendEventsToMultipleStreams(request: EventStore_pb.AppendEventsToMultipleStreamsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: EventStore_pb.StoredEventsList) => void): grpc.ClientUnaryCall;
-    appendEventsToMultipleStreams(request: EventStore_pb.AppendEventsToMultipleStreamsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: EventStore_pb.StoredEventsList) => void): grpc.ClientUnaryCall;
+    appendEventsToStream(request: EventStore_pb.AppendEventsToStreamRequest, callback: (error: grpc.ServiceError | null, response: EventStore_pb.AppendOperationResult) => void): grpc.ClientUnaryCall;
+    appendEventsToStream(request: EventStore_pb.AppendEventsToStreamRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: EventStore_pb.AppendOperationResult) => void): grpc.ClientUnaryCall;
+    appendEventsToStream(request: EventStore_pb.AppendEventsToStreamRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: EventStore_pb.AppendOperationResult) => void): grpc.ClientUnaryCall;
+    appendEventsToMultipleStreams(request: EventStore_pb.AppendEventsToMultipleStreamsRequest, callback: (error: grpc.ServiceError | null, response: EventStore_pb.AppendOperationResult) => void): grpc.ClientUnaryCall;
+    appendEventsToMultipleStreams(request: EventStore_pb.AppendEventsToMultipleStreamsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: EventStore_pb.AppendOperationResult) => void): grpc.ClientUnaryCall;
+    appendEventsToMultipleStreams(request: EventStore_pb.AppendEventsToMultipleStreamsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: EventStore_pb.AppendOperationResult) => void): grpc.ClientUnaryCall;
 }
 
 export class EventStoreClient extends grpc.Client implements IEventStoreClient {
@@ -204,6 +218,9 @@ export class EventStoreClient extends grpc.Client implements IEventStoreClient {
     public ping(request: EventStore_pb.Empty, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: EventStore_pb.Empty) => void): grpc.ClientUnaryCall;
     public heartbeat(options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<EventStore_pb.HeartbeatRequest, EventStore_pb.Empty>;
     public heartbeat(metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<EventStore_pb.HeartbeatRequest, EventStore_pb.Empty>;
+    public getLastEvent(request: EventStore_pb.Empty, callback: (error: grpc.ServiceError | null, response: EventStore_pb.GetLastEventResult) => void): grpc.ClientUnaryCall;
+    public getLastEvent(request: EventStore_pb.Empty, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: EventStore_pb.GetLastEventResult) => void): grpc.ClientUnaryCall;
+    public getLastEvent(request: EventStore_pb.Empty, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: EventStore_pb.GetLastEventResult) => void): grpc.ClientUnaryCall;
     public subscribeToStore(options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<EventStore_pb.Empty, EventStore_pb.StoredEvent>;
     public subscribeToStore(metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<EventStore_pb.Empty, EventStore_pb.StoredEvent>;
     public catchUpWithStore(options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<EventStore_pb.CatchUpWithStoreRequest, EventStore_pb.StoredEvent>;
@@ -222,10 +239,10 @@ export class EventStoreClient extends grpc.Client implements IEventStoreClient {
     public catchUpWithStreamType(metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<EventStore_pb.CatchUpWithStreamTypeRequest, EventStore_pb.StoredEvent>;
     public readStreamTypeForward(request: EventStore_pb.ReadStreamTypeForwardRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<EventStore_pb.StoredEvent>;
     public readStreamTypeForward(request: EventStore_pb.ReadStreamTypeForwardRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<EventStore_pb.StoredEvent>;
-    public appendEventsToStream(request: EventStore_pb.AppendEventsToStreamRequest, callback: (error: grpc.ServiceError | null, response: EventStore_pb.StoredEventsList) => void): grpc.ClientUnaryCall;
-    public appendEventsToStream(request: EventStore_pb.AppendEventsToStreamRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: EventStore_pb.StoredEventsList) => void): grpc.ClientUnaryCall;
-    public appendEventsToStream(request: EventStore_pb.AppendEventsToStreamRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: EventStore_pb.StoredEventsList) => void): grpc.ClientUnaryCall;
-    public appendEventsToMultipleStreams(request: EventStore_pb.AppendEventsToMultipleStreamsRequest, callback: (error: grpc.ServiceError | null, response: EventStore_pb.StoredEventsList) => void): grpc.ClientUnaryCall;
-    public appendEventsToMultipleStreams(request: EventStore_pb.AppendEventsToMultipleStreamsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: EventStore_pb.StoredEventsList) => void): grpc.ClientUnaryCall;
-    public appendEventsToMultipleStreams(request: EventStore_pb.AppendEventsToMultipleStreamsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: EventStore_pb.StoredEventsList) => void): grpc.ClientUnaryCall;
+    public appendEventsToStream(request: EventStore_pb.AppendEventsToStreamRequest, callback: (error: grpc.ServiceError | null, response: EventStore_pb.AppendOperationResult) => void): grpc.ClientUnaryCall;
+    public appendEventsToStream(request: EventStore_pb.AppendEventsToStreamRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: EventStore_pb.AppendOperationResult) => void): grpc.ClientUnaryCall;
+    public appendEventsToStream(request: EventStore_pb.AppendEventsToStreamRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: EventStore_pb.AppendOperationResult) => void): grpc.ClientUnaryCall;
+    public appendEventsToMultipleStreams(request: EventStore_pb.AppendEventsToMultipleStreamsRequest, callback: (error: grpc.ServiceError | null, response: EventStore_pb.AppendOperationResult) => void): grpc.ClientUnaryCall;
+    public appendEventsToMultipleStreams(request: EventStore_pb.AppendEventsToMultipleStreamsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: EventStore_pb.AppendOperationResult) => void): grpc.ClientUnaryCall;
+    public appendEventsToMultipleStreams(request: EventStore_pb.AppendEventsToMultipleStreamsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: EventStore_pb.AppendOperationResult) => void): grpc.ClientUnaryCall;
 }

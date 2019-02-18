@@ -1,89 +1,91 @@
 import EventEmitter from 'eventemitter3'
+// tslint:disable-next-line:no-submodule-imports
+import { Either } from 'fp-ts/lib/Either'
+import StrictEventEmitter from 'strict-event-emitter-types'
+
+import { Messages } from './proto'
 
 export type WritableStreamChecker = (stream: Stream) => boolean
 
-export interface StreamType {
-  readonly context: string
-  readonly name: string
-}
-
-export interface Stream {
-  readonly id: string
-  readonly type: StreamType
-}
-
-export interface Event {
-  readonly name: string
-  readonly payload: string
-}
-
-export interface DbStoredEvent {
-  readonly id: string
+export interface DatabaseStoredEvent extends Messages.StoredEvent.AsObject {
   readonly stream: Stream
-  readonly name: string
-  readonly payload: string
-  readonly storedOn: string
-  readonly sequenceNumber: number
-  readonly correlationId: string
-  readonly transactionId: string
 }
-
-export interface StreamInsertion {
-  readonly stream: Stream
-  readonly expectedStreamSize: number
-  readonly events: ReadonlyArray<Event>
-}
-
-export interface ReadStoreForwardRequest {
-  readonly fromEventId: string
-  readonly limit: number | undefined
-}
-
-export interface ReadStreamForwardRequest {
-  readonly stream: Stream
-  readonly fromSequenceNumber: number
-  readonly limit: number | undefined
-}
-
-export interface ReadStreamTypeForwardRequest {
-  readonly streamType: StreamType
-  readonly fromEventId: string
-  readonly limit: number | undefined
-}
-
-// tslint:disable readonly-keyword
-export interface DbUnavaliableError {
-  name: 'UNAVAILABLE'
-}
-
-export interface DbConcurrencyError {
-  name: 'CONCURRENCY'
-  failures: ReadonlyArray<{
-    stream: Stream
-    currentSequenceNumber: number
-    expectedSequenceNumber: number
-  }>
-}
-
-export type DbError = (DbUnavaliableError | DbConcurrencyError) & {
-  readonly message: string
-}
-// tslint:enable
 
 export interface DatabaseAdapter {
-  readonly appendEvents: (
+  readonly appendInsertions: (
     insertions: ReadonlyArray<StreamInsertion>,
     transactionId: string,
     correlationId: string
-  ) => EventEmitter<'stored-events' | 'update' | 'error'>
+  ) => DatabaseAdapterInsertionEmitter
   readonly getEvents: (
     request: ReadStoreForwardRequest
-  ) => EventEmitter<'event' | 'end' | 'error'>
+  ) => DatabaseAdapterQueryEmitter
   readonly getEventsByStream: (
     request: ReadStreamForwardRequest
-  ) => EventEmitter<'event' | 'end' | 'error'>
+  ) => DatabaseAdapterQueryEmitter
   readonly getEventsByStreamType: (
     request: ReadStreamTypeForwardRequest
-  ) => EventEmitter<'event' | 'end' | 'error'>
-  readonly [key: string]: any
+  ) => DatabaseAdapterQueryEmitter
+  readonly getLastStoredEvent: () => Promise<
+    Either<PersistenceAvailabilityError, DatabaseStoredEvent | void>
+  >
 }
+
+export interface StreamInsertion extends Messages.StreamInsertion.AsObject {
+  readonly stream: Stream
+}
+
+export type DatabaseAdapterInsertionEmitter = StrictEventEmitter<
+  EventEmitter,
+  {
+    readonly 'stored-events': ReadonlyArray<DatabaseStoredEvent>
+    readonly update: void
+    readonly error: AppendOperationError
+  }
+>
+
+export type AppendOperationError =
+  | PersistenceAvailabilityError
+  | PersistenceConcurrencyError
+
+export interface PersistenceAvailabilityError {
+  readonly type: 'AVAILABILITY'
+  readonly name: string
+  readonly message: string
+}
+
+export interface InsertionConcurrencyFailure {
+  readonly type: 'STREAM_DOES_NOT_EXIST' | 'EXPECTED_STREAM_SIZE_MISMATCH'
+  readonly stream: Stream
+  readonly currentStreamSize: number
+  readonly expectedStreamSize: number
+}
+
+export interface PersistenceConcurrencyError {
+  readonly type: 'CONCURRENCY'
+  readonly failures: ReadonlyArray<InsertionConcurrencyFailure>
+}
+
+export type ReadStoreForwardRequest = Messages.ReadStoreForwardRequest.AsObject
+export interface ReadStreamForwardRequest
+  extends Messages.ReadStreamForwardRequest.AsObject {
+  readonly stream: Stream
+}
+export type ReadStreamTypeForwardRequest = Required<
+  Messages.ReadStreamTypeForwardRequest.AsObject
+>
+
+export type DatabaseAdapterQueryEmitter = StrictEventEmitter<
+  EventEmitter,
+  {
+    readonly event: DatabaseStoredEvent
+    readonly end: void
+    readonly error: PersistenceAvailabilityError
+  }
+>
+
+export interface Stream extends Required<Messages.Stream.AsObject> {
+  readonly type: StreamType
+}
+
+export type StreamType = Messages.StreamType.AsObject
