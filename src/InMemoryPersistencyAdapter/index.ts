@@ -2,6 +2,7 @@ import EventEmitter from 'eventemitter3'
 // tslint:disable-next-line:no-submodule-imports
 import { right } from 'fp-ts/lib/Either'
 import { flatten, last } from 'lodash'
+import StrictEventEmitter from 'strict-event-emitter-types'
 
 import { zeropad } from '../helpers/zeropad'
 import {
@@ -29,7 +30,12 @@ interface InMemoryPersistencyAdapterMethods extends PersistencyAdapter {
 }
 
 type InMemoryPersistencyAdapter = InMemoryPersistencyAdapterMethods &
-  EventEmitter
+  StrictEventEmitter<
+    EventEmitter,
+    {
+      readonly update: void
+    }
+  >
 
 export const InMemoryPersistencyAdapter = (
   initialEvents: ReadonlyArray<StoredEvent> = []
@@ -102,9 +108,9 @@ export const InMemoryPersistencyAdapter = (
         const processedInsertions = insertions.map(insertion =>
           processInsertion(insertion, getStreamSize(insertion.stream))
         )
-        const failures = processedInsertions.filter<
-          InsertionConcurrencyFailure
-        >((x: any): x is InsertionConcurrencyFailure => !Array.isArray(x))
+        const failures = processedInsertions.filter(
+          (x: any): x is InsertionConcurrencyFailure => !Array.isArray(x)
+        )
 
         if (failures.length) {
           emitter.emit('error', {
@@ -129,7 +135,7 @@ export const InMemoryPersistencyAdapter = (
           events.push(...eventsToAppend)
 
           emitter.emit('stored-events', eventsToAppend)
-          emitter.emit('update')
+          adapter.emit('update')
         }
       })
       // tslint:enable

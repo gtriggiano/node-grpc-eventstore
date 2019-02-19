@@ -43,7 +43,6 @@ export type PersistencyAdapterInsertionEmitter = StrictEventEmitter<
   EventEmitter,
   {
     readonly 'stored-events': ReadonlyArray<StoredEvent>
-    readonly update: void
     readonly error: AppendOperationError
   }
 >
