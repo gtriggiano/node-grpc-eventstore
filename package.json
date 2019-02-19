@@ -11,7 +11,9 @@
   "repository": "https://github.com/gtriggiano/node-grpc-eventstore",
   "license": "MIT",
   "keywords": [
-    "EventStore"
+    "EventStore",
+    "Event Sourcing",
+    "CQRS"
   ],
   "scripts": {
     "info": "npm-scripts-info",
